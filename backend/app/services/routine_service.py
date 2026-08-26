@@ -9,6 +9,7 @@ from backend.app.models.schemas import (
     BGMTrack
 )
 from backend.app.utils.file_manager import get_project_dir, save_project_state, load_project_state
+from backend.app.services.topic_memory_service import topic_memory
 from backend.app.services.agents.multi_agent_orchestrator import multi_agent_orchestrator
 from backend.app.services.tts_service import tts_service
 from backend.app.services.aligner_service import aligner_service
@@ -63,6 +64,7 @@ class RoutineService:
 
             for idx, item in enumerate(topics_list[:count], 1):
                 topic = item.get("topic", f"Unexplained Phenomenon #{idx}")
+                topic_memory.ban_topic(topic, source=f"batch_routine_{routine_id}")
                 self.active_routine["current_index"] = idx
                 self.active_routine["current_topic"] = topic
                 self.active_routine["logs"].append(f"🎬 [{idx}/{count}] Iniciando produção: '{topic}'")

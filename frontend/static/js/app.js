@@ -44,6 +44,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const routineCurrentTopic = document.getElementById("routine-current-topic");
   const routineLogsConsole = document.getElementById("routine-logs-console");
 
+  // DOM Elements - Banned Topics Memory
+  const bannedTopicsCount = document.getElementById("banned-topics-count");
+  const modalBannedCount = document.getElementById("modal-banned-count");
+  const btnClearBanned = document.getElementById("btn-clear-banned");
+
   // DOM Elements - Generation Form
   const btnResetForm = document.getElementById("btn-reset-form");
   const autoTopicInput = document.getElementById("auto-topic");
@@ -131,10 +136,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Check and display Banned Topics Memory status
+  async function updateBannedTopicsDisplay() {
+    try {
+      const data = await API.getBannedTopics();
+      const count = data.total_banned || 0;
+      if (bannedTopicsCount) bannedTopicsCount.textContent = count;
+      if (modalBannedCount) modalBannedCount.textContent = `${count} banidos`;
+    } catch (e) {
+      console.error("Banned topics check error:", e);
+    }
+  }
+
+  // Clear Banned Topics List
+  if (btnClearBanned) {
+    btnClearBanned.addEventListener("click", async () => {
+      if (!confirm("Tem certeza que deseja resetar a memória anti-repetição de temas?")) return;
+      try {
+        await API.clearBannedTopics();
+        showToast("Memória de temas resetada com sucesso!", "success");
+        updateBannedTopicsDisplay();
+      } catch (e) {
+        showToast("Erro ao limpar temas: " + e.message, "error");
+      }
+    });
+  }
+
   // Settings Modal Events
   openSettingsBtn.addEventListener("click", () => {
     settingsModal.classList.remove("hidden");
     checkYoutubeStatus();
+    updateBannedTopicsDisplay();
   });
   closeSettingsBtn.addEventListener("click", () => settingsModal.classList.add("hidden"));
   doneSettingsBtn.addEventListener("click", () => settingsModal.classList.add("hidden"));
@@ -338,6 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         suggestedTopicsContainer.classList.remove("hidden");
       }
+      updateBannedTopicsDisplay();
     } catch (e) {
       showToast("Erro ao gerar temas: " + e.message, "error");
     } finally {
@@ -372,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     checkApiKeys();
     checkYoutubeStatus();
+    updateBannedTopicsDisplay();
     loadProjectsList();
   }
 

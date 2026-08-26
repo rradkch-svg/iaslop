@@ -1,6 +1,7 @@
 import random
 from typing import Dict, Any, List, Optional
 from backend.app.services.agents.base_agent import BaseAgent
+from backend.app.services.topic_memory_service import topic_memory
 
 class HookScriptAgent(BaseAgent):
     def __init__(self):
@@ -12,7 +13,7 @@ class HookScriptAgent(BaseAgent):
     async def generate_curiosity_topics(self, count: int = 3) -> List[Dict[str, str]]:
         """
         Dynamically generates fresh, bizarre, and intriguing curiosity topics for Minuto Inexplicável.
-        Uses random seed/temperature to ensure dynamic topics are always fresh and unrepeatable.
+        Every topic that is suggested is permanently banned from ever being suggested again.
         """
         angles = [
             "declassified historical anomalies and forbidden archives",
@@ -21,22 +22,37 @@ class HookScriptAgent(BaseAgent):
             "mind-bending biological paradoxes and immortal organisms",
             "bizarre mass psychological events and glitch-in-the-matrix incidents",
             "ancient forgotten engineering that should not have existed",
-            "unexplained disappearance of entire ships, flights or ancient armies"
+            "unexplained disappearance of entire ships, flights or ancient armies",
+            "forbidden CIA and Soviet mind-control or sound experiments",
+            "mysterious ancient artifacts found in solid coal or deep geological strata"
         ]
         chosen_angle = random.choice(angles)
+
+        # Retrieve recent banned topics to inject as negative constraints
+        banned_topics = topic_memory.get_recent_banned_topics(limit=50)
+        banned_clause = ""
+        if banned_topics:
+            banned_list_str = "\n".join([f"- {t}" for t in banned_topics])
+            banned_clause = f"""
+STRICT REQUIREMENT - BANNED / ALREADY USED TOPICS:
+The following topics have ALREADY been suggested or used in the channel and are PERMANENTLY BANNED.
+Do NOT suggest, reuse, or create variations of any of these:
+{banned_list_str}
+"""
 
         system_prompt = (
             "You are the Lead Curiosity Strategist for the YouTube Shorts channel 'Minuto Inexplicável'. "
             "Your mission is to generate highly captivating, factual, bizarre, and unexplainable curiosity topics. "
             "Every single topic MUST sound mysterious, urgent, and mind-blowing. "
+            "Never repeat any previously suggested topic. "
             "Output ONLY a valid JSON array of objects."
         )
 
         user_prompt = f"""
 Focus Angle: {chosen_angle}
 Quantity: {count}
-
-Generate {count} unique, high-retention video topics specifically for YouTube Shorts (in English, high viral appeal).
+{banned_clause}
+Generate {count} completely NEW, unique, never-before-seen curiosity topics for YouTube Shorts (in English, high viral appeal).
 Return JSON format:
 [
   {{
@@ -49,28 +65,36 @@ Return JSON format:
         result = await self.call_llm_json(
             prompt=user_prompt,
             system_prompt=system_prompt,
-            temperature=0.95
+            temperature=0.98
         )
 
+        valid_topics: List[Dict[str, str]] = []
         if isinstance(result, list) and len(result) > 0:
-            return result[:count]
+            for item in result:
+                if isinstance(item, dict) and "topic" in item:
+                    topic_title = item["topic"].strip()
+                    # Filter out if already in memory
+                    if not topic_memory.is_banned(topic_title):
+                        valid_topics.append(item)
+                    else:
+                        print(f"[HookScriptAgent] Filtered out duplicate/banned topic: {topic_title}")
 
-        # Fallback if offline
+        # If LLM returned fewer than requested because of filtering, return what we have
+        if valid_topics:
+            # PERMANENTLY BAN these suggested topics so they never appear again!
+            new_titles = [t["topic"] for t in valid_topics[:count]]
+            topic_memory.ban_topics(new_titles, source="gemini_suggested")
+            return valid_topics[:count]
+
+        # Dynamic fallback generation with unique seed if offline or filtered
+        timestamp_salt = random.randint(100, 9999)
+        fb_topic = f"Unexplained Phenomenon #{timestamp_salt}"
+        topic_memory.ban_topic(fb_topic, source="fallback")
         return [
             {
-                "topic": "The 1994 Oakville Blob Incident",
-                "hook": "In August 1994, a mysterious toxic gelatin rained from the clouds over Washington, making an entire town violently ill.",
-                "tone": "Bizarre & Shocking"
-            },
-            {
-                "topic": "The Immortal Turritopsis Jellyfish",
-                "hook": "There is a creature living in our oceans right now that can literally reverse its aging process and live forever.",
+                "topic": fb_topic,
+                "hook": "A declassified archival anomaly that defied physics and terrified the scientists who found it.",
                 "tone": "Mind-Bending Mystery"
-            },
-            {
-                "topic": "The 1518 Dancing Plague of Strasbourg",
-                "hook": "In July 1518, hundreds of people in Europe began dancing uncontrollably in the streets until their hearts literally burst.",
-                "tone": "Eerie & Fast-Paced"
             }
         ]
 

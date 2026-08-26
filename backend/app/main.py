@@ -213,6 +213,9 @@ async def create_project(data: Dict[str, Any]):
     topic = data.get("topic", "The Mysterious Wow! Signal")
     video_format = data.get("video_format", VideoFormat.SHORTS_9_16)
     
+    # Permanently ban topic so it never repeats as a suggestion
+    topic_memory.ban_topic(topic, source="manual_project")
+
     project = ProjectState(
         id=project_id,
         title=f"Video: {topic}",
@@ -504,6 +507,7 @@ async def generate_thumbnail(project_id: str, custom_text: Optional[str] = None)
     save_project_state(project)
     return project
 
+from backend.app.services.topic_memory_service import topic_memory
 from backend.app.services.agents.multi_agent_orchestrator import multi_agent_orchestrator
 from backend.app.services.routine_service import routine_service
 
@@ -517,6 +521,15 @@ async def generate_topics(data: Dict[str, Any]):
     count = int(data.get("count", 3))
     topics = await multi_agent_orchestrator.generate_dynamic_topics(count=count)
     return {"topics": topics}
+
+@app.get("/api/topics/banned")
+async def get_banned_topics():
+    return topic_memory.get_stats()
+
+@app.post("/api/topics/banned/clear")
+async def clear_banned_topics():
+    topic_memory.clear_banned_topics()
+    return {"message": "Lista de temas banidos limpa com sucesso!", "total_banned": 0}
 
 # ----------------- BATCH ROUTINES ENDPOINTS -----------------
 @app.post("/api/routines/batch")
@@ -684,6 +697,9 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
 
 @app.post("/api/autopilot")
 async def trigger_autopilot(req: AutoPilotRequest, background_tasks: BackgroundTasks):
+    # Permanently ban topic so it never repeats as a suggestion
+    topic_memory.ban_topic(req.topic, source="autopilot_project")
+
     project_id = f"proj_{uuid.uuid4().hex[:8]}"
     project = ProjectState(
         id=project_id,

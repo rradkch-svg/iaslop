@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = BASE_DIR / "backend"
 STORAGE_DIR = BASE_DIR / "storage" / "projects"
 SETTINGS_FILE = BASE_DIR / "storage" / "settings.json"
+BANNED_TOPICS_FILE = BASE_DIR / "storage" / "banned_topics.json"
 ASSETS_DIR = BACKEND_DIR / "assets"
 BGM_DIR = ASSETS_DIR / "bgm"
 SFX_DIR = ASSETS_DIR / "sfx"

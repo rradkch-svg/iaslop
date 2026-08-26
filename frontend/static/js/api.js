@@ -117,5 +117,18 @@ export const API = {
   async getRoutineStatus() {
     const res = await fetch(`${API_BASE}/api/routines/status`);
     return await res.json();
+  },
+
+  // Banned Topics Memory API
+  async getBannedTopics() {
+    const res = await fetch(`${API_BASE}/api/topics/banned`);
+    return await res.json();
+  },
+
+  async clearBannedTopics() {
+    const res = await fetch(`${API_BASE}/api/topics/banned/clear`, {
+      method: "POST"
+    });
+    return await res.json();
   }
 };
