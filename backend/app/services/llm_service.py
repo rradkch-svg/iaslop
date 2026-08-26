@@ -105,29 +105,33 @@ class LLMService:
         clean_key = key.strip()
 
         if provider == "gemini":
-            models_to_test = [
-                ("gemini-2.0-flash", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={clean_key}"),
-                ("gemini-1.5-flash", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"),
-                ("gemini-1.5-flash-v1", f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={clean_key}")
-            ]
-            last_err = ""
-            for model_name, url in models_to_test:
-                try:
-                    payload = {"contents": [{"parts": [{"text": "Say 'OK' in one word."}]}]}
-                    async with httpx.AsyncClient(timeout=15.0) as client:
-                        res = await client.post(url, json=payload)
-                        if res.status_code == 200:
-                            return {"valid": True, "message": f"✓ Google Gemini ({model_name}) conectado com sucesso!"}
-                        else:
-                            try:
-                                err_data = res.json()
-                                msg = err_data.get("error", {}).get("message", res.text[:120])
-                                last_err = f"Google ({res.status_code}): {msg}"
-                            except Exception:
-                                last_err = f"Google HTTP {res.status_code}: {res.text[:120]}"
-                except Exception as e:
-                    last_err = f"Erro de conexão com a Google: {str(e)}"
-            return {"valid": False, "message": f"Falha na validação do Gemini. {last_err}"}
+            # Remove any accidental surrounding quotes, spaces, or linebreaks
+            clean_key = clean_key.strip("'\" \r\n\t")
+            
+            # 1. Official Google Model Discovery Endpoint (100% reliable for all Gemini keys)
+            try:
+                list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_key}"
+                headers = {"Content-Type": "application/json", "x-goog-api-key": clean_key}
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    res = await client.get(list_url, headers=headers)
+                    if res.status_code == 200:
+                        data = res.json()
+                        models = data.get("models", [])
+                        gen_models = [m["name"].replace("models/", "") for m in models if "generateContent" in m.get("supportedGenerationMethods", [])]
+                        model_sample = gen_models[0] if gen_models else "gemini-1.5-flash"
+                        return {
+                            "valid": True,
+                            "message": f"✓ Google Gemini conectado com sucesso! ({len(gen_models)} modelos ativos, ex: {model_sample})"
+                        }
+                    else:
+                        try:
+                            err_data = res.json()
+                            msg = err_data.get("error", {}).get("message", res.text[:120])
+                            return {"valid": False, "message": f"Falha na validação do Gemini. Google ({res.status_code}): {msg}"}
+                        except Exception:
+                            return {"valid": False, "message": f"Falha na validação do Gemini. Google HTTP {res.status_code}"}
+            except Exception as e:
+                return {"valid": False, "message": f"Erro de conexão com a Google: {str(e)}"}
 
         elif provider == "groq":
             try:
