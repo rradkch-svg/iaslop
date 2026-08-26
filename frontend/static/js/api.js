@@ -11,6 +11,36 @@ export const API = {
     return await res.json();
   },
 
+  async getGenres() {
+    const res = await fetch(`${API_BASE}/api/genres`);
+    return await res.json();
+  },
+
+  async generateTopics(genreId, videoFormat = "shorts_9_16") {
+    const res = await fetch(`${API_BASE}/api/topics/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ genre_id: genreId, video_format: videoFormat })
+    });
+    return await res.json();
+  },
+
+  async getApiKeys() {
+    const res = await fetch(`${API_BASE}/api/settings/keys`);
+    return await res.json();
+  },
+
+  async saveApiKeys(keys) {
+    const res = await fetch(`${API_BASE}/api/settings/keys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(keys)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Failed to save key");
+    return data;
+  },
+
   async getProjects() {
     const res = await fetch(`${API_BASE}/api/projects`);
     return await res.json();

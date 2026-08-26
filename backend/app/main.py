@@ -59,7 +59,65 @@ async def serve_project_media(project_id: str, folder: str, filename: str):
         raise HTTPException(status_code=404, detail="Media file not found")
     return FileResponse(file_path)
 
-# ----------------- CONFIG & VOICES -----------------
+# ----------------- CONFIG, GENRES & API KEYS -----------------
+@app.get("/api/genres")
+async def get_genres():
+    return {"genres": settings.GENRES}
+
+@app.post("/api/topics/generate")
+async def generate_topics(data: Dict[str, Any]):
+    genre_id = data.get("genre_id", "mysteries")
+    video_format = data.get("video_format", VideoFormat.SHORTS_9_16)
+    topics = await llm_service.generate_topics_by_genre(genre_id, video_format)
+    return {"topics": topics}
+
+@app.get("/api/settings/keys")
+async def get_api_keys_status():
+    return {
+        "gemini_configured": bool(settings.GEMINI_API_KEY),
+        "groq_configured": bool(settings.GROQ_API_KEY),
+        "openai_configured": bool(settings.OPENAI_API_KEY),
+        "elevenlabs_configured": bool(settings.ELEVENLABS_API_KEY),
+        "fal_configured": bool(settings.FAL_KEY)
+    }
+
+@app.post("/api/settings/keys")
+async def update_api_keys(data: Dict[str, Any]):
+    test_provider = data.get("test_provider")
+    
+    # If testing a single key
+    if test_provider and test_provider in data:
+        key_val = data.get(test_provider, "")
+        result = await llm_service.test_api_key(test_provider, key_val)
+        if not result["valid"]:
+            return JSONResponse(status_code=400, content=result)
+        # If valid, save it
+        settings_dict = {}
+        if test_provider == "gemini":
+            settings_dict["gemini_api_key"] = key_val
+        elif test_provider == "groq":
+            settings_dict["groq_api_key"] = key_val
+        elif test_provider == "openai":
+            settings_dict["openai_api_key"] = key_val
+        settings.save_to_file(settings_dict)
+        return {"valid": True, "message": result["message"]}
+
+    # Bulk save
+    to_save = {}
+    if "gemini_api_key" in data:
+        to_save["gemini_api_key"] = data["gemini_api_key"].strip()
+    if "groq_api_key" in data:
+        to_save["groq_api_key"] = data["groq_api_key"].strip()
+    if "openai_api_key" in data:
+        to_save["openai_api_key"] = data["openai_api_key"].strip()
+    if "elevenlabs_api_key" in data:
+        to_save["elevenlabs_api_key"] = data["elevenlabs_api_key"].strip()
+    if "fal_key" in data:
+        to_save["fal_key"] = data["fal_key"].strip()
+
+    settings.save_to_file(to_save)
+    return {"valid": True, "message": "API keys saved successfully!"}
+
 @app.get("/api/voices")
 async def get_voices():
     return {"voices": settings.DEFAULT_VOICES}
@@ -93,7 +151,7 @@ async def get_projects():
 @app.post("/api/projects/create")
 async def create_project(data: Dict[str, Any]):
     project_id = f"proj_{uuid.uuid4().hex[:8]}"
-    topic = data.get("topic", "Mysteries of the Deep Ocean")
+    topic = data.get("topic", "The Mysterious Wow! Signal")
     video_format = data.get("video_format", VideoFormat.SHORTS_9_16)
     
     project = ProjectState(
@@ -142,7 +200,8 @@ async def generate_script(project_id: str, req: ScriptGenerationRequest):
     project.current_step = 2
     project.status = "idle"
     project.progress = 20
-    project.logs.append(f"Step 1 Complete: Script generated ({len(project.speech_blocks)} speech blocks).")
+    word_count = len(project.full_script.split())
+    project.logs.append(f"Step 1 Complete: Script generated ({word_count} words in {len(project.speech_blocks)} speech blocks).")
     save_project_state(project)
 
     return project
@@ -210,7 +269,7 @@ async def generate_prompts(project_id: str, req: ScenePromptsRequest):
     project.current_step = 5
     project.status = "idle"
     project.progress = 55
-    project.logs.append(f"Step 4 Complete: Visual prompts created for {len(updated_scenes)} scenes.")
+    project.logs.append(f"Step 4 Complete: Bespoke visual prompts created for {len(updated_scenes)} scenes.")
     save_project_state(project)
 
     return project
@@ -403,13 +462,14 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
             topic=req.topic,
             video_format=req.video_format,
             tone="engaging",
-            target_duration=45 if req.video_format == VideoFormat.SHORTS_9_16 else 120
+            target_duration=45 if req.video_format == VideoFormat.SHORTS_9_16 else 180
         )
         project.title = script_res["title_concept"]
         project.full_script = script_res["full_script"]
         project.speech_blocks = script_res["speech_blocks"]
         project.progress = 20
-        project.logs.append("✓ Step 1: Script generated.")
+        word_count = script_res.get("word_count", len(project.full_script.split()))
+        project.logs.append(f"✓ Step 1: Script generated ({word_count} words).")
         save_project_state(project)
 
         # 2 & 3. Audio & Timestamps
@@ -441,7 +501,7 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
         )
         project.scenes = updated_scenes
         project.progress = 55
-        project.logs.append("✓ Step 4: Scene prompts generated.")
+        project.logs.append(f"✓ Step 4: Bespoke visual prompts created for {len(updated_scenes)} scenes.")
         save_project_state(project)
 
         # 5. Illustrations / Images

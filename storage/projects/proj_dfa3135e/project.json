@@ -1,0 +1,414 @@
+{
+  "id": "proj_dfa3135e",
+  "title": "The Hidden Truth Behind Sla",
+  "topic": "sla",
+  "video_format": "shorts_9_16",
+  "voice_id": "en-US-ChristopherNeural",
+  "subtitle_style": "hormozi",
+  "bgm_track": "cinematic",
+  "full_script": "Most people have no idea this secret about Sla actually exists.\n\nFor decades, researchers noticed something strange happening beneath the surface.\n\nEvery single test revealed patterns that defied modern scientific logic.\n\nWhen the final results were unveiled, it changed our entire perspective forever.\n\nDrop a comment if you believe this is real, and subscribe for more daily breakthroughs.",
+  "speech_blocks": [
+    "Most people have no idea this secret about Sla actually exists.",
+    "For decades, researchers noticed something strange happening beneath the surface.",
+    "Every single test revealed patterns that defied modern scientific logic.",
+    "When the final results were unveiled, it changed our entire perspective forever.",
+    "Drop a comment if you believe this is real, and subscribe for more daily breakthroughs."
+  ],
+  "audio_path": "/media/projects/proj_dfa3135e/audio/narration.mp3",
+  "audio_duration": 25.94,
+  "word_timestamps": [
+    {
+      "word": "Most",
+      "start": 0.1,
+      "end": 0.441
+    },
+    {
+      "word": "people",
+      "start": 0.441,
+      "end": 0.952
+    },
+    {
+      "word": "have",
+      "start": 0.952,
+      "end": 1.293
+    },
+    {
+      "word": "no",
+      "start": 1.293,
+      "end": 1.464
+    },
+    {
+      "word": "idea",
+      "start": 1.464,
+      "end": 1.805
+    },
+    {
+      "word": "this",
+      "start": 1.805,
+      "end": 2.145
+    },
+    {
+      "word": "secret",
+      "start": 2.145,
+      "end": 2.657
+    },
+    {
+      "word": "about",
+      "start": 2.657,
+      "end": 3.083
+    },
+    {
+      "word": "Sla",
+      "start": 3.083,
+      "end": 3.339
+    },
+    {
+      "word": "actually",
+      "start": 3.339,
+      "end": 4.02
+    },
+    {
+      "word": "exists.",
+      "start": 4.02,
+      "end": 4.787
+    },
+    {
+      "word": "For",
+      "start": 4.737,
+      "end": 4.943
+    },
+    {
+      "word": "decades,",
+      "start": 4.943,
+      "end": 5.627
+    },
+    {
+      "word": "researchers",
+      "start": 5.627,
+      "end": 6.38
+    },
+    {
+      "word": "noticed",
+      "start": 6.38,
+      "end": 6.859
+    },
+    {
+      "word": "something",
+      "start": 6.859,
+      "end": 7.474
+    },
+    {
+      "word": "strange",
+      "start": 7.474,
+      "end": 7.953
+    },
+    {
+      "word": "happening",
+      "start": 7.953,
+      "end": 8.569
+    },
+    {
+      "word": "beneath",
+      "start": 8.569,
+      "end": 9.048
+    },
+    {
+      "word": "the",
+      "start": 9.048,
+      "end": 9.253
+    },
+    {
+      "word": "surface.",
+      "start": 9.253,
+      "end": 9.938
+    },
+    {
+      "word": "Every",
+      "start": 9.938,
+      "end": 10.329
+    },
+    {
+      "word": "single",
+      "start": 10.329,
+      "end": 10.798
+    },
+    {
+      "word": "test",
+      "start": 10.798,
+      "end": 11.112
+    },
+    {
+      "word": "revealed",
+      "start": 11.112,
+      "end": 11.738
+    },
+    {
+      "word": "patterns",
+      "start": 11.738,
+      "end": 12.364
+    },
+    {
+      "word": "that",
+      "start": 12.364,
+      "end": 12.677
+    },
+    {
+      "word": "defied",
+      "start": 12.677,
+      "end": 13.147
+    },
+    {
+      "word": "modern",
+      "start": 13.147,
+      "end": 13.616
+    },
+    {
+      "word": "scientific",
+      "start": 13.616,
+      "end": 14.399
+    },
+    {
+      "word": "logic.",
+      "start": 14.399,
+      "end": 15.025
+    },
+    {
+      "word": "When",
+      "start": 15.025,
+      "end": 15.322
+    },
+    {
+      "word": "the",
+      "start": 15.322,
+      "end": 15.544
+    },
+    {
+      "word": "final",
+      "start": 15.544,
+      "end": 15.915
+    },
+    {
+      "word": "results",
+      "start": 15.915,
+      "end": 16.434
+    },
+    {
+      "word": "were",
+      "start": 16.434,
+      "end": 16.73
+    },
+    {
+      "word": "unveiled,",
+      "start": 16.73,
+      "end": 17.546
+    },
+    {
+      "word": "it",
+      "start": 17.546,
+      "end": 17.694
+    },
+    {
+      "word": "changed",
+      "start": 17.694,
+      "end": 18.213
+    },
+    {
+      "word": "our",
+      "start": 18.213,
+      "end": 18.436
+    },
+    {
+      "word": "entire",
+      "start": 18.436,
+      "end": 18.88
+    },
+    {
+      "word": "perspective",
+      "start": 18.88,
+      "end": 19.696
+    },
+    {
+      "word": "forever.",
+      "start": 19.696,
+      "end": 20.438
+    },
+    {
+      "word": "Drop",
+      "start": 20.438,
+      "end": 20.721
+    },
+    {
+      "word": "a",
+      "start": 20.721,
+      "end": 20.791
+    },
+    {
+      "word": "comment",
+      "start": 20.791,
+      "end": 21.287
+    },
+    {
+      "word": "if",
+      "start": 21.287,
+      "end": 21.428
+    },
+    {
+      "word": "you",
+      "start": 21.428,
+      "end": 21.641
+    },
+    {
+      "word": "believe",
+      "start": 21.641,
+      "end": 22.136
+    },
+    {
+      "word": "this",
+      "start": 22.136,
+      "end": 22.419
+    },
+    {
+      "word": "is",
+      "start": 22.419,
+      "end": 22.561
+    },
+    {
+      "word": "real,",
+      "start": 22.561,
+      "end": 23.056
+    },
+    {
+      "word": "and",
+      "start": 23.056,
+      "end": 23.269
+    },
+    {
+      "word": "subscribe",
+      "start": 23.269,
+      "end": 23.906
+    },
+    {
+      "word": "for",
+      "start": 23.906,
+      "end": 24.118
+    },
+    {
+      "word": "more",
+      "start": 24.118,
+      "end": 24.401
+    },
+    {
+      "word": "daily",
+      "start": 24.401,
+      "end": 24.755
+    },
+    {
+      "word": "breakthroughs.",
+      "start": 24.755,
+      "end": 25.887
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene_1",
+      "index": 1,
+      "start_time": 0.1,
+      "end_time": 4.79,
+      "duration": 4.69,
+      "speech_text": "Most people have no idea this secret about Sla actually exists.",
+      "visual_prompt": "cinematic shot illustrating 'Most people have no idea this secret about Sla actually exists.', dramatic volumetric lighting, high detail, photorealistic, 8k resolution, hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting",
+      "image_url": "/media/projects/proj_dfa3135e/images/scene_1.jpg",
+      "local_image_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\images\\scene_1.jpg",
+      "motion_type": "zoom_in"
+    },
+    {
+      "id": "scene_2",
+      "index": 2,
+      "start_time": 4.74,
+      "end_time": 9.94,
+      "duration": 5.2,
+      "speech_text": "For decades, researchers noticed something strange happening beneath the surface.",
+      "visual_prompt": "cinematic shot illustrating 'For decades, researchers noticed something strange happening beneath the surface.', dramatic volumetric lighting, high detail, photorealistic, 8k resolution, hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting",
+      "image_url": "/media/projects/proj_dfa3135e/images/scene_2.jpg",
+      "local_image_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\images\\scene_2.jpg",
+      "motion_type": "pan_left"
+    },
+    {
+      "id": "scene_3",
+      "index": 3,
+      "start_time": 9.94,
+      "end_time": 15.03,
+      "duration": 5.09,
+      "speech_text": "Every single test revealed patterns that defied modern scientific logic.",
+      "visual_prompt": "cinematic shot illustrating 'Every single test revealed patterns that defied modern scientific logic.', dramatic volumetric lighting, high detail, photorealistic, 8k resolution, hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting",
+      "image_url": "/media/projects/proj_dfa3135e/images/scene_3.jpg",
+      "local_image_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\images\\scene_3.jpg",
+      "motion_type": "zoom_out"
+    },
+    {
+      "id": "scene_4",
+      "index": 4,
+      "start_time": 15.03,
+      "end_time": 20.44,
+      "duration": 5.41,
+      "speech_text": "When the final results were unveiled, it changed our entire perspective forever.",
+      "visual_prompt": "cinematic shot illustrating 'When the final results were unveiled, it changed our entire perspective forever.', dramatic volumetric lighting, high detail, photorealistic, 8k resolution, hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting",
+      "image_url": "/media/projects/proj_dfa3135e/images/scene_4.jpg",
+      "local_image_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\images\\scene_4.jpg",
+      "motion_type": "pan_right"
+    },
+    {
+      "id": "scene_5",
+      "index": 5,
+      "start_time": 20.44,
+      "end_time": 25.94,
+      "duration": 5.5,
+      "speech_text": "Drop a comment if you believe this is real, and subscribe for more daily breakthroughs.",
+      "visual_prompt": "cinematic shot illustrating 'Drop a comment if you believe this is real, and subscribe for more daily breakthroughs.', dramatic volumetric lighting, high detail, photorealistic, 8k resolution, hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting",
+      "image_url": "/media/projects/proj_dfa3135e/images/scene_5.jpg",
+      "local_image_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\images\\scene_5.jpg",
+      "motion_type": "zoom_in"
+    }
+  ],
+  "subtitle_path": "/media/projects/proj_dfa3135e/subtitles/karaoke.ass",
+  "final_video_path": "/media/projects/proj_dfa3135e/video/final_video.mp4",
+  "metadata": {
+    "titles": [
+      "The Shocking Truth Behind Sla",
+      "Why Scientists Are Terrified of Sla",
+      "Sla Explained In 60 Seconds!"
+    ],
+    "description": "Discover the hidden truth and fascinating facts about Sla.\n\n🔔 Subscribe for more mind-blowing stories every day!\n\n#shorts #facts #sla #documentary #viral",
+    "tags": [
+      "sla",
+      "shorts",
+      "viral",
+      "interesting facts",
+      "documentary",
+      "mindblown",
+      "science"
+    ],
+    "viral_hook_analysis": "Crafted with emotional urgency and algorithmic keyword matching for maximum YouTube search and suggested feed distribution."
+  },
+  "thumbnail": {
+    "thumbnail_prompt": "YouTube thumbnail high CTR composition, dramatic high contrast visual of sla, shocked expression or intense focal point, vibrant neon rim lighting, deep shadows, 8k cinematic masterpiece",
+    "thumbnail_url": "/media/projects/proj_dfa3135e/thumbnail/thumbnail.jpg",
+    "local_thumbnail_path": "C:\\Users\\Aluno\\Documents\\RRA_NRM\\prj1\\storage\\projects\\proj_dfa3135e\\thumbnail\\thumbnail.jpg",
+    "suggested_overlay_text": "WHAT HAPPENED?"
+  },
+  "current_step": 1,
+  "status": "completed",
+  "progress": 100,
+  "logs": [
+    "Auto-Pilot project initialized.",
+    "🚀 Auto-Pilot Started: Executing 9-step video creation pipeline...",
+    "✓ Step 1: Script generated.",
+    "✓ Step 2 & 3: Voice synthesized (25.9s) & 5 scenes aligned.",
+    "✓ Step 4: Scene prompts generated.",
+    "✓ Step 5: Visual illustrations generated.",
+    "✓ Step 6: Interactive karaoke subtitles compiled.",
+    "✓ Step 7: Video rendered with Ken Burns motion & BGM mix.",
+    "✓ Step 8: YouTube Titles, Description & Tags created.",
+    "🎉 Step 9 Complete: All assets, video and thumbnail ready for YouTube publication!"
+  ]
+}
