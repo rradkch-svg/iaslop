@@ -23,10 +23,11 @@ class VideoEngine:
         video_format: VideoFormat = VideoFormat.SHORTS_9_16,
         bgm_track: BGMTrack = BGMTrack.CINEMATIC,
         bgm_volume: float = 0.14,
-        sfx_timeline: Optional[List[dict]] = None
+        sfx_timeline: Optional[List[dict]] = None,
+        scene_clip_paths: Optional[List[Path]] = None
     ) -> bool:
         """
-        Step 7: Compiles all visual scene clips with Ken Burns camera motion,
+        Step 7: Compiles all visual scene clips (B-Roll video cuts or Ken Burns AI images),
         mixes audio with SFX impacts + ducked background music, and burns interactive karaoke subtitles.
         """
         temp_dir = project_dir / "video" / "temp"
@@ -36,28 +37,29 @@ class VideoEngine:
         res = settings.RESOLUTIONS["shorts_9_16" if is_short else "long_16_9"]
         width, height, fps = res["width"], res["height"], res["fps"]
 
-        # 1. Render Ken Burns clips for each scene
-        scene_clip_paths: List[Path] = []
-        for scene in scenes:
-            img_path = Path(scene.local_image_path) if scene.local_image_path else None
-            if not img_path or not img_path.exists():
-                print(f"Warning: Missing image for scene {scene.id}")
-                continue
+        # 1. Collect or render clips for each scene
+        if not scene_clip_paths:
+            scene_clip_paths = []
+            for scene in scenes:
+                img_path = Path(scene.local_image_path) if scene.local_image_path else None
+                if not img_path or not img_path.exists():
+                    print(f"Warning: Missing image for scene {scene.id}")
+                    continue
 
-            clip_path = temp_dir / f"{scene.id}_clip.mp4"
-            duration = max(scene.duration, 1.0)
-            
-            success = generate_ken_burns_clip(
-                image_path=img_path,
-                output_path=clip_path,
-                duration=duration,
-                width=width,
-                height=height,
-                motion_type=scene.motion_type,
-                fps=fps
-            )
-            if success and clip_path.exists():
-                scene_clip_paths.append(clip_path)
+                clip_path = temp_dir / f"{scene.id}_clip.mp4"
+                duration = max(scene.duration, 1.0)
+                
+                success = generate_ken_burns_clip(
+                    image_path=img_path,
+                    output_path=clip_path,
+                    duration=duration,
+                    width=width,
+                    height=height,
+                    motion_type=scene.motion_type,
+                    fps=fps
+                )
+                if success and clip_path.exists():
+                    scene_clip_paths.append(clip_path)
 
         if not scene_clip_paths:
             print("Error: No scene clips were generated.")

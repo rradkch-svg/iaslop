@@ -115,7 +115,7 @@ class RoutineService:
                 project.logs.append(f"✓ Sonoplasta: Narração gerada ({total_duration:.1f}s) e {len(scenes)} cenas sincronizadas.")
                 save_project_state(project)
 
-                # Step 4: Visual Director (Cinematographic Prompts & Motion)
+                # Step 4: Visual Director (Cinematographic Prompts & B-Roll Queries)
                 updated_scenes = await multi_agent_orchestrator.execute_visual_direction_phase(
                     topic=topic,
                     scenes=scenes,
@@ -123,24 +123,23 @@ class RoutineService:
                 )
                 project.scenes = updated_scenes
                 project.progress = 55
-                project.logs.append(f"✓ Diretor Visual: Prompts cinematográficos 9:16 e movimentos Ken Burns definidos.")
+                project.logs.append(f"✓ Diretor Visual: Queries de B-Roll e prompts cinematográficos 9:16 definidos.")
                 save_project_state(project)
 
-                # Step 5: AI Illustrations
-                images_dir = project_dir / "images"
-                await image_service.generate_all_scene_images(
-                    scenes=updated_scenes,
-                    output_dir=images_dir,
-                    video_format=VideoFormat.SHORTS_9_16
+                # Step 5: Hybrid B-Roll Video Scraping & Gemini Vision Review
+                scene_clips = await multi_agent_orchestrator.execute_broll_and_visual_phase(
+                    scenes=project.scenes,
+                    topic=topic,
+                    project_dir=project_dir
                 )
                 for s in project.scenes:
                     if s.local_image_path:
                         s.image_url = f"/media/projects/{project_id}/images/{Path(s.local_image_path).name}"
                 project.progress = 70
-                project.logs.append("✓ Ilustrador: Imagens hiper-realistas geradas.")
+                project.logs.append("✓ Motor B-Roll & Auditor Visual: Clipes HD 9:16 varridos e inspecionados via Gemini Vision.")
                 save_project_state(project)
 
-                # Step 6: Interactive Karaoke Subtitles
+                # Step 6: Interactive Hormozi Pill Box Subtitles
                 ass_path = project_dir / "subtitles" / "karaoke.ass"
                 subtitle_service.generate_ass_subtitles(
                     word_timestamps=project.word_timestamps,
@@ -150,10 +149,10 @@ class RoutineService:
                 )
                 project.subtitle_path = f"/media/projects/{project_id}/subtitles/karaoke.ass"
                 project.progress = 80
-                project.logs.append("✓ Legendas: Karaoke dinâmico sincronizado.")
+                project.logs.append("✓ Legendas: Hormozi Pill Box sincronizado com margem segura.")
                 save_project_state(project)
 
-                # Step 7: Sound Design SFX & Video Render
+                # Step 7: Sound Design SFX & Master Video Render
                 sfx_timeline = multi_agent_orchestrator.execute_sound_design_phase(
                     scenes=project.scenes,
                     word_timestamps=project.word_timestamps,
@@ -171,11 +170,12 @@ class RoutineService:
                     video_format=VideoFormat.SHORTS_9_16,
                     bgm_track=bgm_track,
                     bgm_volume=0.14,
-                    sfx_timeline=sfx_timeline
+                    sfx_timeline=sfx_timeline,
+                    scene_clip_paths=scene_clips
                 )
                 project.final_video_path = f"/media/projects/{project_id}/video/final_video.mp4"
                 project.progress = 90
-                project.logs.append("✓ Renderizador: Vídeo final compilado com Ken Burns + SFX + BGM.")
+                project.logs.append("✓ Renderizador: Vídeo final compilado com B-Rolls + Ken Burns + SFX + BGM.")
                 save_project_state(project)
 
                 # Step 8: YouTube SEO Package

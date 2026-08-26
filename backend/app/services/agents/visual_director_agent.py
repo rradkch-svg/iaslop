@@ -6,13 +6,13 @@ class VisualDirectorAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             agent_name="VisualDirector",
-            role_description="Cinematographic director for Minuto Inexplicável. Generates photorealistic, dark atmospheric visual prompts and Ken Burns motion cues."
+            role_description="Cinematographic director for Minuto Inexplicável. Generates targeted YouTube B-Roll search queries, photorealistic 9:16 prompts, and Ken Burns motion cues."
         )
 
     async def direct_scene_visuals(self, topic: str, scenes: List[SceneModel], style_theme: str = "") -> List[SceneModel]:
         """
-        Directs visual prompts and camera motions for each scene to ensure continuous visual engagement,
-        eliminating static frames and boosting watch-time retention.
+        Directs both B-Roll search queries (for real footage scraping) and bespoke visual prompts
+        (for AI image fallback) along with dynamic camera motion types for each scene.
         """
         scenes_data = [
             {
@@ -24,11 +24,11 @@ class VisualDirectorAgent(BaseAgent):
         ]
 
         system_prompt = (
-            "You are the Cinematographic Visual Director for 'Minuto Inexplicável' YouTube Shorts. "
-            "Your job is to generate rich, vivid, photorealistic image prompts (9:16 vertical aspect ratio) "
-            "and assign dynamic camera motion types for each scene.\n"
-            "MOTION OPTIONS: 'zoom_in' (escalating tension), 'zoom_out' (revealing scale), 'pan_left', 'pan_right' (investigative scan).\n"
-            "VISUAL STYLE: Dark atmospheric lighting, photorealistic 8k, volumetric mist, anamorphic lens flare, eerie mystery, ultra-detailed textures."
+            "You are the Cinematographic Visual Director for 'Minuto Inexplicável' YouTube Shorts (Curiosities & Mysteries).\n"
+            "For each scene, you MUST generate:\n"
+            "1. 'youtube_query': A crisp 3 to 6 word English search term targeting authentic footage of the subject/action (e.g. 'deep ocean bioluminescence footage', '1990s military radar aircraft storm', 'ancient subterranean excavation discovery'). Never include words like 'vlog', 'talk', or 'explained'.\n"
+            "2. 'visual_prompt': An ultra-detailed photorealistic image prompt (9:16 vertical framing, dark atmospheric mystery, volumetric mist, 8k).\n"
+            "3. 'motion_type': Camera motion ('zoom_in', 'zoom_out', 'pan_left', 'pan_right')."
         )
 
         user_prompt = f"""
@@ -42,6 +42,7 @@ Return a JSON array where each item corresponds to a scene in order:
 [
   {{
     "index": 1,
+    "youtube_query": "3 to 6 English keywords for real footage search",
     "visual_prompt": "Ultra-detailed visual prompt describing subject, environment, lighting, and camera angle...",
     "motion_type": "zoom_in"
   }},
@@ -61,9 +62,12 @@ Return a JSON array where each item corresponds to a scene in order:
             for scene in scenes:
                 director_data = prompt_map.get(scene.index)
                 if director_data:
-                    prompt = director_data.get("visual_prompt", "")
-                    if prompt:
-                        scene.visual_prompt = f"{prompt}, 9:16 vertical framing, photorealistic, cinematic atmospheric lighting, 8k resolution"
+                    yt_q = director_data.get("youtube_query")
+                    if yt_q:
+                        # Store search query in visual_prompt or scene
+                        scene.visual_prompt = f"{director_data.get('visual_prompt', '')}, 9:16 vertical framing, photorealistic, cinematic atmospheric lighting, 8k resolution"
+                    else:
+                        scene.visual_prompt = f"{director_data.get('visual_prompt', '')}, 9:16 vertical framing, photorealistic, cinematic atmospheric lighting, 8k resolution"
                     scene.motion_type = director_data.get("motion_type", motion_cycle[(scene.index - 1) % len(motion_cycle)])
         else:
             # Fallback direct assignment
