@@ -8,7 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
     voices: [],
     formats: [],
     genres: [],
-    apiKeysStatus: {}
+    apiKeysStatus: {},
+    youtubeStatus: { authenticated: false }
   };
 
   // DOM Elements
@@ -32,10 +33,19 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const keyGeminiInput = document.getElementById("key-gemini-input");
   const keyGroqInput = document.getElementById("key-groq-input");
-  const keyOpenaiInput = document.getElementById("key-openai-input");
   const testGeminiBtn = document.getElementById("test-gemini-btn");
   const testGroqBtn = document.getElementById("test-groq-btn");
-  const testOpenaiBtn = document.getElementById("test-openai-btn");
+
+  // YouTube OAuth Elements
+  const youtubeSecretsFile = document.getElementById("youtube-secrets-file");
+  const uploadSecretsBtn = document.getElementById("upload-secrets-btn");
+  const connectYoutubeBtn = document.getElementById("connect-youtube-btn");
+  const youtubeAuthStatus = document.getElementById("youtube-auth-status");
+  const ytChannelBadge = document.getElementById("yt-channel-badge");
+  const btnUploadYoutube = document.getElementById("btn-upload-youtube");
+  const ytPrivacySelect = document.getElementById("yt-privacy-select");
+  const ytResultContainer = document.getElementById("yt-result-container");
+  const ytResultLink = document.getElementById("yt-result-link");
 
   // Topic & Genre Elements
   const genreSelect = document.getElementById("genre-select");
@@ -101,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateWordCount();
   });
 
-  // Load API Keys & Config
+  // Load API Keys & YouTube status
   async function checkApiKeys() {
     try {
       const keys = await API.getApiKeys();
@@ -116,9 +126,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function checkYoutubeStatus() {
+    try {
+      const res = await API.getYoutubeStatus();
+      state.youtubeStatus = res;
+      if (res.authenticated) {
+        youtubeAuthStatus.innerHTML = `<span class="text-emerald-400 font-bold">✓ Conectado: ${res.title || "Canal YouTube"}</span>`;
+        if (ytChannelBadge) {
+          ytChannelBadge.innerHTML = `<span class="text-emerald-400 font-semibold">Canal: ${res.title}</span>`;
+        }
+      } else {
+        youtubeAuthStatus.textContent = "Status: Não conectado";
+        if (ytChannelBadge) {
+          ytChannelBadge.textContent = "Canal: Não conectado (configure no topo)";
+        }
+      }
+    } catch (e) {
+      console.error("YouTube status error:", e);
+    }
+  }
+
   // Settings Modal Handlers
   openSettingsBtn.addEventListener("click", () => {
     settingsModal.classList.remove("hidden");
+    checkYoutubeStatus();
   });
   closeSettingsBtn.addEventListener("click", () => {
     settingsModal.classList.add("hidden");
@@ -138,7 +169,11 @@ document.addEventListener("DOMContentLoaded", () => {
     testGeminiBtn.disabled = true;
     try {
       const res = await API.saveApiKeys({ test_provider: "gemini", gemini: key });
-      showToast(res.message, "success");
+      if (res.valid) {
+        showToast(res.message, "success");
+      } else {
+        showToast(res.message, "error");
+      }
       checkApiKeys();
     } catch (e) {
       showToast(e.message, "error");
@@ -159,7 +194,11 @@ document.addEventListener("DOMContentLoaded", () => {
     testGroqBtn.disabled = true;
     try {
       const res = await API.saveApiKeys({ test_provider: "groq", groq: key });
-      showToast(res.message, "success");
+      if (res.valid) {
+        showToast(res.message, "success");
+      } else {
+        showToast(res.message, "error");
+      }
       checkApiKeys();
     } catch (e) {
       showToast(e.message, "error");
@@ -169,24 +208,80 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Test OpenAI
-  testOpenaiBtn.addEventListener("click", async () => {
-    const key = keyOpenaiInput.value.trim();
-    if (!key) {
-      showToast("Insira a chave da OpenAI.", "error");
+  // YouTube client secrets upload
+  uploadSecretsBtn.addEventListener("click", async () => {
+    if (!youtubeSecretsFile.files || youtubeSecretsFile.files.length === 0) {
+      showToast("Selecione o arquivo client_secrets.json primeiro.", "error");
       return;
     }
-    testOpenaiBtn.textContent = "Testando...";
-    testOpenaiBtn.disabled = true;
+    const formData = new FormData();
+    formData.append("file", youtubeSecretsFile.files[0]);
+
+    uploadSecretsBtn.textContent = "Carregando...";
+    uploadSecretsBtn.disabled = true;
+
     try {
-      const res = await API.saveApiKeys({ test_provider: "openai", openai: key });
-      showToast(res.message, "success");
-      checkApiKeys();
+      const res = await API.uploadYoutubeClientSecrets(formData);
+      showToast("client_secrets.json carregado com sucesso!", "success");
+      checkYoutubeStatus();
     } catch (e) {
-      showToast(e.message, "error");
+      showToast("Erro ao carregar client_secrets.json", "error");
     } finally {
-      testOpenaiBtn.textContent = "Testar & Salvar";
-      testOpenaiBtn.disabled = false;
+      uploadSecretsBtn.textContent = "Carregar JSON";
+      uploadSecretsBtn.disabled = false;
+    }
+  });
+
+  // Connect YouTube channel via desktop browser flow
+  connectYoutubeBtn.addEventListener("click", async () => {
+    connectYoutubeBtn.innerHTML = `<span>⏳ Abrindo autorização no navegador...</span>`;
+    connectYoutubeBtn.disabled = true;
+
+    try {
+      const res = await API.authYoutubeDesktop();
+      if (res.authenticated) {
+        showToast(`Canal ${res.title} conectado com sucesso!`, "success");
+        checkYoutubeStatus();
+      } else {
+        showToast("Falha na autorização do YouTube", "error");
+      }
+    } catch (e) {
+      showToast("Erro na conexão do YouTube: " + e.message, "error");
+    } finally {
+      connectYoutubeBtn.innerHTML = `<span>🔴 Conectar Canal do YouTube</span>`;
+      connectYoutubeBtn.disabled = false;
+    }
+  });
+
+  // Direct YouTube Upload Button (Step 9)
+  btnUploadYoutube.addEventListener("click", async () => {
+    if (!state.currentProject) {
+      showToast("Abra um projeto concluído primeiro.", "error");
+      return;
+    }
+    const privacy = ytPrivacySelect.value;
+    btnUploadYoutube.innerHTML = `<span>⏳ Enviando vídeo e thumbnail para o YouTube...</span>`;
+    btnUploadYoutube.disabled = true;
+
+    try {
+      const res = await API.uploadToYoutube(state.currentProject.id, {
+        title: state.currentProject.metadata?.titles?.[0] || state.currentProject.title,
+        description: state.currentProject.metadata?.description || "",
+        tags: state.currentProject.metadata?.tags || [],
+        privacy_status: privacy,
+        category_id: "27"
+      });
+
+      ytResultContainer.classList.remove("hidden");
+      ytResultLink.href = res.video_url;
+      ytResultLink.textContent = `Assistir no YouTube: ${res.video_url} ↗`;
+      showToast("🎉 Publicado com sucesso no YouTube!", "success");
+
+    } catch (e) {
+      showToast("Erro no upload do YouTube: " + e.message, "error");
+    } finally {
+      btnUploadYoutube.innerHTML = `<span>🚀 Publicar Vídeo & Thumbnail no YouTube</span>`;
+      btnUploadYoutube.disabled = false;
     }
   });
 
@@ -224,6 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       checkApiKeys();
+      checkYoutubeStatus();
       loadProjectsList();
     } catch (e) {
       console.error("Config load error:", e);
@@ -465,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const res = await API.generateImages(state.currentProject.id, sceneId);
           state.currentProject = res;
           renderProjectState();
-          showToast(`Cena ${sceneId} regenerada!`, "success");
+          showToast(`Cena ${sceneId} regenerada com sucesso!`, "success");
         } catch (err) {
           showToast("Falha ao regenerar imagem", "error");
         }

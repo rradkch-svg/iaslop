@@ -37,7 +37,38 @@ export const API = {
       body: JSON.stringify(keys)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to save key");
+    return data;
+  },
+
+  // YouTube Data API
+  async getYoutubeStatus() {
+    const res = await fetch(`${API_BASE}/api/youtube/status`);
+    return await res.json();
+  },
+
+  async uploadYoutubeClientSecrets(formData) {
+    const res = await fetch(`${API_BASE}/api/youtube/client-secrets`, {
+      method: "POST",
+      body: formData
+    });
+    return await res.json();
+  },
+
+  async authYoutubeDesktop() {
+    const res = await fetch(`${API_BASE}/api/youtube/auth/desktop`, {
+      method: "POST"
+    });
+    return await res.json();
+  },
+
+  async uploadToYoutube(projectId, { title, description, tags, privacy_status, category_id }) {
+    const res = await fetch(`${API_BASE}/api/projects/${projectId}/youtube/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, tags, privacy_status, category_id })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Falha no upload do YouTube");
     return data;
   },
 

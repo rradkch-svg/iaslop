@@ -98,27 +98,41 @@ class LLMService:
         return None
 
     async def test_api_key(self, provider: str, key: str) -> Dict[str, Any]:
-        """Tests an API key live to verify connection"""
+        """Tests an API key live to verify connection and returns human-readable diagnostic"""
         if not key or len(key.strip()) < 5:
-            return {"valid": False, "message": "Key cannot be empty."}
+            return {"valid": False, "message": "A chave da API não pode estar vazia."}
+
+        clean_key = key.strip()
 
         if provider == "gemini":
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key.strip()}"
-                payload = {"contents": [{"parts": [{"text": "Say 'OK' in one word."}]}]}
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    res = await client.post(url, json=payload)
-                    if res.status_code == 200:
-                        return {"valid": True, "message": "Google Gemini API connected successfully!"}
-                    else:
-                        return {"valid": False, "message": f"Gemini error {res.status_code}: {res.text[:150]}"}
-            except Exception as e:
-                return {"valid": False, "message": f"Connection error: {str(e)}"}
+            models_to_test = [
+                ("gemini-2.0-flash", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={clean_key}"),
+                ("gemini-1.5-flash", f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"),
+                ("gemini-1.5-flash-v1", f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={clean_key}")
+            ]
+            last_err = ""
+            for model_name, url in models_to_test:
+                try:
+                    payload = {"contents": [{"parts": [{"text": "Say 'OK' in one word."}]}]}
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        res = await client.post(url, json=payload)
+                        if res.status_code == 200:
+                            return {"valid": True, "message": f"✓ Google Gemini ({model_name}) conectado com sucesso!"}
+                        else:
+                            try:
+                                err_data = res.json()
+                                msg = err_data.get("error", {}).get("message", res.text[:120])
+                                last_err = f"Google ({res.status_code}): {msg}"
+                            except Exception:
+                                last_err = f"Google HTTP {res.status_code}: {res.text[:120]}"
+                except Exception as e:
+                    last_err = f"Erro de conexão com a Google: {str(e)}"
+            return {"valid": False, "message": f"Falha na validação do Gemini. {last_err}"}
 
         elif provider == "groq":
             try:
                 url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {key.strip()}"}
+                headers = {"Authorization": f"Bearer {clean_key}"}
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": "Say 'OK'"}]
@@ -126,26 +140,26 @@ class LLMService:
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     res = await client.post(url, json=payload, headers=headers)
                     if res.status_code == 200:
-                        return {"valid": True, "message": "Groq API connected successfully!"}
+                        return {"valid": True, "message": "✓ Groq Cloud conectado com sucesso!"}
                     else:
-                        return {"valid": False, "message": f"Groq error {res.status_code}: {res.text[:150]}"}
+                        return {"valid": False, "message": f"Erro Groq ({res.status_code}): {res.text[:120]}"}
             except Exception as e:
-                return {"valid": False, "message": f"Connection error: {str(e)}"}
+                return {"valid": False, "message": f"Erro de conexão com Groq: {str(e)}"}
 
         elif provider == "openai":
             try:
                 url = "https://api.openai.com/v1/models"
-                headers = {"Authorization": f"Bearer {key.strip()}"}
+                headers = {"Authorization": f"Bearer {clean_key}"}
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     res = await client.get(url, headers=headers)
                     if res.status_code == 200:
-                        return {"valid": True, "message": "OpenAI API connected successfully!"}
+                        return {"valid": True, "message": "✓ OpenAI API conectada com sucesso!"}
                     else:
-                        return {"valid": False, "message": f"OpenAI error {res.status_code}"}
+                        return {"valid": False, "message": f"Erro OpenAI ({res.status_code})"}
             except Exception as e:
-                return {"valid": False, "message": f"Connection error: {str(e)}"}
+                return {"valid": False, "message": f"Erro de conexão: {str(e)}"}
 
-        return {"valid": False, "message": "Unknown provider"}
+        return {"valid": False, "message": "Provedor desconhecido"}
 
     async def generate_topics_by_genre(self, genre_id: str, video_format: VideoFormat = VideoFormat.SHORTS_9_16) -> List[Dict[str, str]]:
         """

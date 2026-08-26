@@ -3,7 +3,7 @@ import uuid
 import asyncio
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -39,6 +39,7 @@ from backend.app.services.subtitle_service import subtitle_service
 from backend.app.services.video_engine import video_engine
 from backend.app.services.metadata_service import metadata_service
 from backend.app.services.thumbnail_service import thumbnail_service
+from backend.app.services.youtube_service import youtube_service
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
@@ -90,7 +91,8 @@ async def update_api_keys(data: Dict[str, Any]):
         key_val = data.get(test_provider, "")
         result = await llm_service.test_api_key(test_provider, key_val)
         if not result["valid"]:
-            return JSONResponse(status_code=400, content=result)
+            return JSONResponse(status_code=200, content=result)  # Return 200 with valid: False for clean UI display
+        
         # If valid, save it
         settings_dict = {}
         if test_provider == "gemini":
@@ -116,7 +118,64 @@ async def update_api_keys(data: Dict[str, Any]):
         to_save["fal_key"] = data["fal_key"].strip()
 
     settings.save_to_file(to_save)
-    return {"valid": True, "message": "API keys saved successfully!"}
+    return {"valid": True, "message": "Chaves salvas com sucesso!"}
+
+# ----------------- YOUTUBE DATA API V3 -----------------
+@app.get("/api/youtube/status")
+async def get_youtube_status():
+    info = youtube_service.get_channel_info()
+    return info
+
+@app.post("/api/youtube/client-secrets")
+async def upload_client_secrets(file: UploadFile = File(...)):
+    import json
+    content = await file.read()
+    secrets_dict = json.loads(content.decode("utf-8"))
+    res = youtube_service.save_client_secrets(secrets_dict)
+    return res
+
+@app.post("/api/youtube/auth/desktop")
+async def auth_youtube_desktop():
+    try:
+        info = youtube_service.authenticate_with_desktop_flow()
+        return info
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"YouTube OAuth error: {str(e)}")
+
+@app.post("/api/projects/{project_id}/youtube/upload")
+async def upload_project_to_youtube(project_id: str, data: Dict[str, Any]):
+    project = load_project_state(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_dir = get_project_dir(project_id)
+    video_path = project_dir / "video" / "final_video.mp4"
+    thumbnail_path = project_dir / "thumbnail" / "thumbnail.jpg"
+
+    if not video_path.exists():
+        raise HTTPException(status_code=400, detail="Vídeo final ainda não foi renderizado.")
+
+    title = data.get("title", project.title or project.topic)
+    description = data.get("description", project.metadata.description if project.metadata else "")
+    tags = data.get("tags", project.metadata.tags if project.metadata else [])
+    privacy = data.get("privacy_status", "private")
+    category = data.get("category_id", "27")
+
+    try:
+        res = await youtube_service.upload_video(
+            video_path=video_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy_status=privacy,
+            category_id=category,
+            thumbnail_path=thumbnail_path if thumbnail_path.exists() else None
+        )
+        project.logs.append(f"🚀 Vídeo publicado no YouTube com sucesso: {res['video_url']}")
+        save_project_state(project)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Falha no upload para o YouTube: {str(e)}")
 
 @app.get("/api/voices")
 async def get_voices():
