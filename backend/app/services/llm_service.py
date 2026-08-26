@@ -26,7 +26,7 @@ class LLMService:
 
         # 1. Google Gemini API (Free at https://aistudio.google.com/app/apikey)
         if gemini_key:
-            models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+            models_to_try = ["gemini-3.6-flash", "gemini-flash-latest"]
             for model_name in models_to_try:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
@@ -37,7 +37,7 @@ class LLMService:
                             "temperature": 0.75
                         }
                     }
-                    async with httpx.AsyncClient(timeout=90.0) as client:
+                    async with httpx.AsyncClient(timeout=45.0) as client:
                         res = await client.post(url, json=payload)
                         if res.status_code == 200:
                             data = res.json()
@@ -207,28 +207,15 @@ Return ONLY a JSON array with 3 distinct topic objects:
 
         # High quality fallback topics tailored to genre
         fallbacks = {
-            "mysteries": [
-                {"topic": "The 1977 Wow! Signal and the Hydrogen Cloud Secret", "hook": "A 72-second extraterrestrial signal received in Ohio that has never repeated—until new radio telescope scans revealed its origin.", "tone": "mysterious"},
-                {"topic": "The Green Children of Woolpit: 12th-Century Mystery", "hook": "Two children with green skin speaking an unknown language appeared in medieval England, claiming they came from a subterranean twilight realm.", "tone": "mysterious"},
-                {"topic": "The Vanished Crew of the Mary Celeste in 1872", "hook": "A pristine merchant ship found sailing aimlessly with warm food on the table, full cargo, and every soul vanished into thin air.", "tone": "dramatic"}
-            ],
-            "space": [
-                {"topic": "What Happens at the Event Horizon of TON 618", "hook": "The largest supermassive black hole in the universe weighs 66 billion suns and consumes entire star clusters every second.", "tone": "educational"},
-                {"topic": "The Fermi Paradox and the Great Filter Theory", "hook": "Why the silence of the cosmos is the most terrifying evidence of what happens to advanced civilizations before they reach interstellar travel.", "tone": "mysterious"},
-                {"topic": "The Bizarre Rogue Planets Drifting in Absolute Darkness", "hook": "Billions of sunless worlds wandering interstellar space with oceans trapped beneath radioactive crusts.", "tone": "dramatic"}
-            ],
-            "history": [
-                {"topic": "The Lost Ninth Roman Legion That Vanished in Scotland", "hook": "5,000 elite Roman soldiers marched into the Scottish mist of Caledonia in 117 AD—and were never heard from again.", "tone": "dramatic"},
-                {"topic": "The Real Reason the Library of Alexandria Was Lost", "hook": "It wasn't a single catastrophic fire, but centuries of bureaucratic neglect, military sieges, and hidden manuscript thefts.", "tone": "educational"},
-                {"topic": "The 1932 Australian Emu War and Military Humiliation", "hook": "When a modern army with heavy machine guns went to war against wild birds—and suffered a catastrophic defeat.", "tone": "engaging"}
-            ],
-            "psychology": [
-                {"topic": "The Dark Triad: How Master Manipulators Read You in 30 Seconds", "hook": "The psychological micro-signals of Machiavellianism and how the human brain unwittingly surrenders control.", "tone": "engaging"},
-                {"topic": "The Pratfall Effect and Why Perfect People Are Disliked", "hook": "The subconscious mechanism that makes people trust flaws more than flawless competence.", "tone": "educational"},
-                {"topic": "Cognitive Dissonance: Why People Defend Obvious Lies", "hook": "How the human ego rewrites its own memory to prevent internal psychological collapse.", "tone": "dramatic"}
+            "curiosidades": [
+                {"topic": "The Immortal Jellyfish: The Only Creature That Lives Forever", "hook": "There is a creature in our oceans that can literally reset its biological age back to infancy whenever it gets injured or old.", "tone": "engaging"},
+                {"topic": "Why 3,000-Year-Old Honey in Egyptian Tombs Never Spoils", "hook": "Archaeologists discovered pots of honey in King Tut's tomb that were still completely edible after three millennia.", "tone": "educational"},
+                {"topic": "The Voynich Manuscript: The 600-Year-Old Cryptographic Mystery", "hook": "Written in an undecipherable script with illustrations of non-existent plants, the world's greatest cryptographers still cannot crack it.", "tone": "mysterious"},
+                {"topic": "The Underwater Waterfall in Mauritius That Defies Gravity", "hook": "An optical illusion in the Indian Ocean that looks like a massive abyss opening up right into the center of the Earth.", "tone": "dramatic"},
+                {"topic": "The Wow! Signal: A 72-Second Message From Deep Space", "hook": "A radio burst detected in 1977 that perfectly matched the profile of an extraterrestrial beacon and was never heard again.", "tone": "mysterious"}
             ]
         }
-        return fallbacks.get(genre_id, fallbacks["mysteries"])
+        return fallbacks.get(genre_id, fallbacks["curiosidades"])
 
     async def generate_script(
         self,

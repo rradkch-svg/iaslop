@@ -67,19 +67,13 @@ class Settings:
             json.dump(current, f, indent=2)
         self.load_from_file()
 
-    # Genres for AI Topic Generation
+    # Exclusive Genre: Curiosidades & Fatos Fascinantes
     GENRES = [
-        {"id": "mysteries", "name": "🌊 Unexplained Mysteries & Conspiracies", "desc": "Bizarre occurrences, unexplained signals, anomalies, and deep rabbit holes."},
-        {"id": "space", "name": "🌌 Space, Cosmos & Astrophysics", "desc": "Black holes, time dilation, bizarre exoplanets, and existential cosmos theories."},
-        {"id": "history", "name": "⚔️ Dark & Ancient History", "desc": "Forgotten battles, lost civilizations, mysterious rulers, and historical blunders."},
-        {"id": "psychology", "name": "🧠 Psychology, Dark Triad & Mind Hacks", "desc": "Cognitive biases, psychological warfare, subconscious tricks, and human behavior."},
-        {"id": "true_crime", "name": "🕵️ Unsolved True Crime & Heists", "desc": "High-stakes robberies, mysterious disappearances, cold cases, and masterminds."},
-        {"id": "science", "name": "🔬 Mind-Blowing Science & Physics", "desc": "Quantum phenomena, bizarre biological mutations, paradoxes, and cutting-edge discoveries."},
-        {"id": "technology", "name": "🤖 Cyber Warfare, AI & Future Tech", "desc": "Superintelligent AI, shadow web hacks, military robotics, and dystopian tech."},
-        {"id": "wealth", "name": "💰 Underground Wealth & Business Secrets", "desc": "How shady cartels, covert monopolies, and secretive billionaires built empires."},
-        {"id": "philosophy", "name": "🏛️ Stoicism & Ancient Power Laws", "desc": "Rules of power, mental invincibility, lessons from emperors, and timeless wisdom."},
-        {"id": "mythology", "name": "🐉 Ancient Mythology & Forbidden Lore", "desc": "Gods, legendary creatures, ancient apocalyptic prophecies, and forgotten texts."},
-        {"id": "horror", "name": "🕯️ Creepypasta & Disturbing Internet Lore", "desc": "Haunting digital mysteries, ARG phenomena, dark broadcast anomalies, and liminal spaces."}
+        {
+            "id": "curiosidades",
+            "name": "🧠 Curiosidades & Fatos Fascinantes",
+            "desc": "Fatos bizarros, mistérios intrigantes, anomalias científicas e segredos históricos explicados de forma rápida, hipnótica e irresistível."
+        }
     ]
 
     # Available English TTS Voices (Edge-TTS)
