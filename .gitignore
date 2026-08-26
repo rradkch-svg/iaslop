@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Storage & Temporary Render Artifacts
+storage/projects/*/video/temp/
+storage/projects/*/*.mp4
+storage/projects/*/*.mp3
+storage/projects/*/*.jpg
+storage/projects/*/*.aac
+storage/projects/*/*.ass
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

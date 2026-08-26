@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube AI Video Studio — High Retention Video Engine</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <span class="text-xl">🎬</span>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          YouTube AI Video Studio
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider">v1.0 Pro</span>
+        </h1>
+        <p class="text-xs text-slate-400">High-Retention AI Video Pipeline with Word-Highlight Subtitles</p>
+      </div>
+    </div>
+
+    <!-- Mode Switcher Tabs -->
+    <div class="flex items-center gap-2 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+      <button id="tab-studio-btn" class="px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition-colors flex items-center gap-2">
+        <span>🎛️ Step-by-Step Studio</span>
+      </button>
+      <button id="tab-autopilot-btn" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 text-slate-400 hover:text-white transition-colors flex items-center gap-2">
+        <span>⚡ 1-Click Auto-Pilot</span>
+      </button>
+    </div>
+
+    <!-- Project Selector & Actions -->
+    <div class="flex items-center gap-3">
+      <select id="project-select" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 min-w-[200px]">
+        <option value="">Loading projects...</option>
+      </select>
+      <button id="new-project-btn" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all flex items-center gap-1.5">
+        <span>+ New Video</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
+
+    <!-- ==================== STUDIO VIEW (STEP-BY-STEP) ==================== -->
+    <div id="studio-view" class="flex flex-col gap-6">
+
+      <!-- 9-STEP WORKFLOW TRACKER -->
+      <div class="glass-panel p-3 overflow-x-auto">
+        <div class="flex items-center justify-between min-w-[860px] gap-2">
+          
+          <button data-step="1" class="step-item active flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">1</span>
+            <span>Script</span>
+          </button>
+          
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="2" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">2-3</span>
+            <span>Audio & Pauses</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="4" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">4</span>
+            <span>Scene Prompts</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="5" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">5</span>
+            <span>Illustrations</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="6" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">6</span>
+            <span>Karaoke Subs</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="7" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">7</span>
+            <span>Render Video</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="8" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">8</span>
+            <span>SEO Metadata</span>
+          </button>
+
+          <span class="text-slate-600 text-xs">→</span>
+
+          <button data-step="9" class="step-item flex-1 py-2 px-3 rounded-lg border border-slate-800 text-xs font-medium text-slate-400 hover:text-white flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold">9</span>
+            <span>Thumbnail</span>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- STEP 1 PANEL: SCRIPT GENERATOR -->
+      <div data-step="1" class="step-panel glass-panel p-6 flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>✍️ Step 1: Script Writing with Speech Blocks</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Creates a high-retention English script with natural pauses and hook loops for YouTube.</p>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded bg-indigo-950 text-indigo-400 font-mono border border-indigo-800/50">Rule: Line break per pause</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="md:col-span-2 flex flex-col gap-4">
+            <!-- VIRAL NICHE PRESETS -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">🔥 Viral YouTube Niche Templates (Quick Select)</label>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="niche-preset-btn px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors" data-topic="The Strange Acoustic Anomaly Detected in the Mariana Trench" data-tone="mysterious">
+                  🌊 Ocean Mysteries
+                </button>
+                <button type="button" class="niche-preset-btn px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors" data-topic="What Happens to Time Near a Supermassive Black Hole" data-tone="educational">
+                  🌌 Space & Relativity
+                </button>
+                <button type="button" class="niche-preset-btn px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors" data-topic="The Bizarre Lost Roman Legion That Vanished in Asia" data-tone="dramatic">
+                  ⚔️ Ancient History
+                </button>
+                <button type="button" class="niche-preset-btn px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors" data-topic="The Psychological Trick Casinos Use to Keep You Playing" data-tone="engaging">
+                  🧠 Brain & Psychology
+                </button>
+                <button type="button" class="niche-preset-btn px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-indigo-600 border border-slate-700 text-xs text-slate-300 hover:text-white transition-colors" data-topic="Marcus Aurelius' Most Powerful Rule for Mental Toughness" data-tone="dramatic">
+                  🏛️ Stoic Mindset
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Video Topic / Idea</label>
+              <input id="step1-topic" type="text" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="e.g., The mysterious Bloop sound recorded in the Pacific Ocean in 1997" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Format</label>
+                <select id="step1-format" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                  <option value="shorts_9_16">YouTube Shorts (9:16)</option>
+                  <option value="long_16_9">YouTube Long-form (16:9)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Narrative Tone</label>
+                <select id="step1-tone" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                  <option value="engaging">Engaging & Fast-Paced</option>
+                  <option value="mysterious">Dark & Mysterious</option>
+                  <option value="dramatic">Dramatic & Epic</option>
+                  <option value="educational">Educational & Clear</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Target Duration</label>
+                <select id="step1-duration" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                  <option value="35">~35s (Punchy Short)</option>
+                  <option value="50" selected>~50s (Max Retention Short)</option>
+                  <option value="120">~2 min (Mini Documentary)</option>
+                  <option value="240">~4 min (Full Story)</option>
+                </select>
+              </div>
+            </div>
+
+            <button id="btn-generate-script" class="mt-2 py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+              <span>✨ Generate AI Script</span>
+            </button>
+          </div>
+
+          <!-- Script Output Box -->
+          <div id="step1-script-container" class="flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Generated Speech Blocks</label>
+              <span class="text-[11px] text-slate-500">Edit directly if desired</span>
+            </div>
+            <textarea id="step1-script-preview" rows="12" class="w-full p-4 rounded-xl bg-slate-900/90 border border-slate-700 text-xs font-mono text-slate-200 leading-relaxed focus:border-indigo-500 outline-none" placeholder="Script with pauses will appear here..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 & 3 PANEL: TTS & TIMESTAMPS -->
+      <div data-step="2" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🎙️ Steps 2 & 3: Voice Synthesis & Timestamp Alignment</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Synthesizes natural American/British English voice and calculates exact word and pause timestamps.</p>
+          </div>
+          <span id="step2-duration-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/50 font-mono font-bold">0.0s</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="flex flex-col gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Select High-Conversion English Voice</label>
+              <select id="step2-voice-select" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 focus:border-indigo-500 outline-none">
+                <!-- Options populated dynamically -->
+              </select>
+            </div>
+
+            <button id="btn-generate-audio" class="py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+              <span>🎙️ Generate Audio & Timestamps</span>
+            </button>
+          </div>
+
+          <div id="step2-audio-container" class="p-6 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-center gap-3 hidden">
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Voice Narration Audio</label>
+            <audio id="step2-audio-player" controls class="w-full"></audio>
+            <p class="text-xs text-slate-400 mt-1">✓ Sentences and pause silences have been automatically mapped into video scenes.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 PANEL: SCENE PROMPTS -->
+      <div data-step="4" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🎨 Step 4: Scene Visual Prompts [0:07]</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">AI matches each speech block/pause with a cinematographic illustration prompt.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input id="step4-art-style" type="text" value="cinematic realistic 8k, unreal engine 5, volumetric lighting" class="text-xs px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 min-w-[280px]" placeholder="Art style modifier..." />
+            <button id="btn-generate-prompts" class="py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all">
+              <span>🎨 Generate Scene Prompts</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="step4-scenes-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated dynamically with scene cards -->
+        </div>
+      </div>
+
+      <!-- STEP 5 PANEL: ILLUSTRATIONS GALLERY -->
+      <div data-step="5" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🖼️ Step 5: Visual Illustrations</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">High-definition AI visual generation for every scene in your timeline.</p>
+          </div>
+          <button id="btn-generate-images" class="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all">
+            <span>🖼️ Generate All Illustrations</span>
+          </button>
+        </div>
+
+        <div id="step5-images-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <!-- Populated dynamically with scene image cards -->
+        </div>
+      </div>
+
+      <!-- STEP 6 PANEL: KARAOKE SUBTITLES -->
+      <div data-step="6" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>📝 Step 6: Interactive Karaoke Subtitles (ASS Highlight)</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Word-by-word visual highlight synchronized precisely to spoken audio.</p>
+          </div>
+          <button id="btn-generate-subtitles" class="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all">
+            <span>📝 Build Interactive Subtitles</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="flex flex-col gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Preset Subtitle Style</label>
+              <select id="step6-style-select" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 focus:border-indigo-500 outline-none">
+                <option value="hormozi">Hormozi / Viral TikTok (Big Bold Center, Neon Yellow Highlight)</option>
+                <option value="high_energy">High Energy (Impact Font, Neon Green Highlight)</option>
+                <option value="minimalist">Documentary Minimalist (Clean Bottom Bar)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Visual Style Preview Card -->
+          <div class="md:col-span-2 p-8 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col items-center justify-center min-h-[160px] text-center">
+            <span class="text-xs text-slate-500 uppercase tracking-wider mb-3">Live Style Simulation</span>
+            <div class="text-2xl uppercase tracking-wider font-extrabold text-white">
+              <span>DID YOU </span>
+              <span class="karaoke-word-active">KNOW</span>
+              <span> THIS SECRET?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 7 PANEL: RENDER VIDEO -->
+      <div data-step="7" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🎬 Step 7: Video Assembly & Rendering</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Applies continuous Ken Burns movement, ducked background music, and burns interactive subtitles.</p>
+          </div>
+          <button id="btn-render-video" class="py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2">
+            <span>🎬 Render Final Video</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="flex flex-col gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Background Music (BGM)</label>
+              <select id="step7-bgm-select" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 focus:border-indigo-500 outline-none">
+                <option value="cinematic">Cinematic Ambient (Tension & Mystery)</option>
+                <option value="epic">Epic & Dramatic</option>
+                <option value="lofi">Lo-Fi Chill</option>
+                <option value="upbeat">Fast & Energetic</option>
+                <option value="none">No Music (Speech Only)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">BGM Volume (Ducking Level)</label>
+              <input id="step7-bgm-volume" type="range" min="0.05" max="0.30" step="0.01" value="0.14" class="w-full accent-indigo-500" />
+              <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                <span>Subtle (-20dB)</span>
+                <span>Balanced (-16dB)</span>
+                <span>Loud (-10dB)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Video Player Output -->
+          <div id="step7-video-container" class="flex flex-col items-center justify-center p-4 rounded-xl bg-slate-900/90 border border-slate-800 hidden">
+            <video id="step7-video-player" controls class="max-h-[460px] rounded-lg shadow-2xl bg-black"></video>
+            <a id="download-video-btn" download="youtube_video.mp4" class="mt-4 py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
+              <span>⬇️ Download Finished MP4</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 8 PANEL: SEO METADATA -->
+      <div data-step="8" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>📈 Step 8: High-CTR Titles, SEO Description & Tags</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Optimized for YouTube search algorithms and suggested recommendations.</p>
+          </div>
+          <button id="btn-generate-metadata" class="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all">
+            <span>📈 Generate SEO & Titles</span>
+          </button>
+        </div>
+
+        <div id="step8-meta-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
+          <div class="flex flex-col gap-4">
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Top 3 Viral Titles (Ranked for CTR)</label>
+            <div id="meta-titles-list" class="flex flex-col gap-2"></div>
+
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider mt-2">Recommended Tags</label>
+            <div id="meta-tags-list" class="flex flex-wrap gap-1.5"></div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">YouTube SEO Description</label>
+              <button class="text-xs px-2 py-1 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded transition-colors copy-btn" id="copy-desc-btn" data-copy="">
+                📋 Copy All
+              </button>
+            </div>
+            <textarea id="meta-description-text" rows="10" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-slate-200 leading-relaxed"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 9 PANEL: THUMBNAIL -->
+      <div data-step="9" class="step-panel glass-panel p-6 hidden flex flex-col gap-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>🖼️ Step 9: High-CTR Thumbnail</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">High-contrast visual composition with punchy text overlay designed to maximize click-through rate.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input id="step9-custom-text" type="text" placeholder="Custom overlay text (e.g. THE TRUTH)" class="text-xs px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 w-52" />
+            <button id="btn-generate-thumbnail" class="py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all">
+              <span>🖼️ Generate Thumbnail</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="step9-thumb-container" class="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-900/80 border border-slate-800 hidden">
+          <div class="max-w-2xl w-full aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-700">
+            <img id="step9-thumb-img" src="" alt="Thumbnail" class="w-full h-full object-cover" />
+          </div>
+          <a id="download-thumb-btn" download="youtube_thumbnail.jpg" class="mt-4 py-2 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
+            <span>⬇️ Download Full Resolution Thumbnail</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== AUTO-PILOT VIEW (1-CLICK) ==================== -->
+    <div id="autopilot-view" class="glass-panel p-8 hidden flex flex-col gap-6 max-w-4xl mx-auto w-full">
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>⚡ 1-Click Auto-Pilot Video Producer</span>
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">Provide a single topic and the engine will autonomously write the script, record the voice, align scenes, generate illustrations, compile karaoke subtitles, render the Ken Burns video, and create metadata + thumbnail!</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Video Topic / Premise</label>
+          <input id="auto-topic" type="text" class="w-full px-4 py-3.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="e.g. Why deep sea creatures glow in the dark" value="The Unexplained Mystery of The Bloop Sound" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Format</label>
+          <select id="auto-format" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+            <option value="shorts_9_16">YouTube Shorts (9:16 Vertical)</option>
+            <option value="long_16_9">YouTube Long-form (16:9 Horizontal)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Voice</label>
+          <select id="auto-voice-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Subtitle Style</label>
+          <select id="auto-style-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+            <option value="hormozi">Hormozi / TikTok (Yellow Highlight)</option>
+            <option value="high_energy">High Energy (Green Highlight)</option>
+            <option value="minimalist">Documentary Minimalist</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Background Music</label>
+          <select id="auto-bgm-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+            <option value="cinematic">Cinematic Ambient</option>
+            <option value="epic">Epic & Dramatic</option>
+            <option value="lofi">Lo-Fi Chill</option>
+            <option value="upbeat">Fast & Energetic</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Art Style Modifier</label>
+          <input id="auto-art-style" type="text" value="hyperrealistic cinematic 8k, unreal engine 5, volumetric atmospheric lighting" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none" />
+        </div>
+      </div>
+
+      <button id="btn-start-autopilot" class="mt-2 py-4 px-8 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 text-white font-bold text-base shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+        <span>🚀 Launch Complete 1-Click Video Production</span>
+      </button>
+
+      <!-- Auto-Pilot Live Progress Console -->
+      <div id="autopilot-progress-container" class="mt-4 p-6 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col gap-3 hidden">
+        <div class="flex justify-between items-center text-xs font-mono">
+          <span id="autopilot-status-text" class="text-indigo-400 font-semibold">Status: Initializing...</span>
+          <span class="text-slate-500">Real-time Pipeline Stream</span>
+        </div>
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
+          <div id="autopilot-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-3 rounded-full transition-all duration-500" style="width: 5%"></div>
+        </div>
+        <!-- Logs Terminal -->
+        <div id="autopilot-logs" class="p-3 bg-slate-900/90 rounded-lg max-h-48 overflow-y-auto border border-slate-800 flex flex-col gap-1 text-[11px] font-mono">
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JavaScript Entry Point -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

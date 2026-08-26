@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-main: #090d16;
+  --bg-card: #111827;
+  --bg-card-hover: #1f293d;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-active: #6366f1;
+  --primary: #6366f1;
+  --primary-glow: rgba(99, 102, 241, 0.25);
+  --accent-yellow: #facc15;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Glassmorphism Card */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 25px var(--primary-glow);
+}
+.glow-yellow {
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.2);
+}
+
+/* Step Badges */
+.step-item {
+  transition: all 0.25s ease;
+}
+.step-item.active {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.15);
+  color: #fff;
+}
+.step-item.completed {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+/* Code & prompt font */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Video Aspect Frames */
+.aspect-shorts {
+  aspect-ratio: 9 / 16;
+  max-height: 620px;
+}
+.aspect-long {
+  aspect-ratio: 16 / 9;
+  max-height: 480px;
+}
+
+/* Animated Pulse */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+/* Karaoke text simulation */
+.karaoke-word-active {
+  color: #ffe600;
+  text-shadow: 0 0 10px rgba(255, 230, 0, 0.8), 2px 2px 0 #000;
+  transform: scale(1.1);
+  display: inline-block;
+  font-weight: 800;
+}

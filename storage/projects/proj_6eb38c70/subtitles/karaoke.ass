@@ -1,0 +1,74 @@
+[Script Info]
+Title: YouTube AI Studio Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial Black,72,&H00FFFFFF&,&H000000FF,&H00000000&,&H64000000&,-1,0,0,0,100,100,1,0,1,6,3,5,30,30,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.10,0:00:00.45,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}MOST{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}PEOPLE {\c&H00FFFFFF&}HAVE
+Dialogue: 0,0:00:00.45,0:00:00.97,Default,,0,0,0,,{\c&H00FFFFFF&}MOST {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}PEOPLE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}HAVE
+Dialogue: 0,0:00:00.97,0:00:01.32,Default,,0,0,0,,{\c&H00FFFFFF&}MOST {\c&H00FFFFFF&}PEOPLE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}HAVE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:01.32,0:00:01.50,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}NO{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}IDEA {\c&H00FFFFFF&}THIS
+Dialogue: 0,0:00:01.50,0:00:01.85,Default,,0,0,0,,{\c&H00FFFFFF&}NO {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}IDEA{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THIS
+Dialogue: 0,0:00:01.85,0:00:02.20,Default,,0,0,0,,{\c&H00FFFFFF&}NO {\c&H00FFFFFF&}IDEA {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THIS{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:02.20,0:00:02.72,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SECRET{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}ABOUT {\c&H00FFFFFF&}THE
+Dialogue: 0,0:00:02.72,0:00:03.16,Default,,0,0,0,,{\c&H00FFFFFF&}SECRET {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}ABOUT{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THE
+Dialogue: 0,0:00:03.16,0:00:03.42,Default,,0,0,0,,{\c&H00FFFFFF&}SECRET {\c&H00FFFFFF&}ABOUT {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:03.42,0:00:03.86,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}BLOOP{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}MYSTERY {\c&H00FFFFFF&}1997
+Dialogue: 0,0:00:03.86,0:00:04.47,Default,,0,0,0,,{\c&H00FFFFFF&}BLOOP {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}MYSTERY{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}1997
+Dialogue: 0,0:00:04.47,0:00:04.82,Default,,0,0,0,,{\c&H00FFFFFF&}BLOOP {\c&H00FFFFFF&}MYSTERY {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}1997{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:04.82,0:00:05.51,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}ACTUALLY{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}EXISTS. {\c&H00FFFFFF&}FOR
+Dialogue: 0,0:00:05.51,0:00:06.30,Default,,0,0,0,,{\c&H00FFFFFF&}ACTUALLY {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}EXISTS.{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}FOR
+Dialogue: 0,0:00:06.25,0:00:06.46,Default,,0,0,0,,{\c&H00FFFFFF&}ACTUALLY {\c&H00FFFFFF&}EXISTS. {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}FOR{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:06.46,0:00:07.14,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}DECADES,{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}RESEARCHERS {\c&H00FFFFFF&}NOTICED
+Dialogue: 0,0:00:07.14,0:00:07.89,Default,,0,0,0,,{\c&H00FFFFFF&}DECADES, {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}RESEARCHERS{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}NOTICED
+Dialogue: 0,0:00:07.89,0:00:08.37,Default,,0,0,0,,{\c&H00FFFFFF&}DECADES, {\c&H00FFFFFF&}RESEARCHERS {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}NOTICED{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:08.37,0:00:08.99,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SOMETHING{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}STRANGE {\c&H00FFFFFF&}HAPPENING
+Dialogue: 0,0:00:08.99,0:00:09.47,Default,,0,0,0,,{\c&H00FFFFFF&}SOMETHING {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}STRANGE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}HAPPENING
+Dialogue: 0,0:00:09.47,0:00:10.08,Default,,0,0,0,,{\c&H00FFFFFF&}SOMETHING {\c&H00FFFFFF&}STRANGE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}HAPPENING{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:10.08,0:00:10.56,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}BENEATH{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THE {\c&H00FFFFFF&}SURFACE.
+Dialogue: 0,0:00:10.56,0:00:10.77,Default,,0,0,0,,{\c&H00FFFFFF&}BENEATH {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}SURFACE.
+Dialogue: 0,0:00:10.77,0:00:11.45,Default,,0,0,0,,{\c&H00FFFFFF&}BENEATH {\c&H00FFFFFF&}THE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SURFACE.{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:11.45,0:00:11.84,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}EVERY{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}SINGLE {\c&H00FFFFFF&}TEST
+Dialogue: 0,0:00:11.84,0:00:12.31,Default,,0,0,0,,{\c&H00FFFFFF&}EVERY {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SINGLE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}TEST
+Dialogue: 0,0:00:12.31,0:00:12.62,Default,,0,0,0,,{\c&H00FFFFFF&}EVERY {\c&H00FFFFFF&}SINGLE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}TEST{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:12.62,0:00:13.25,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}REVEALED{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}PATTERNS {\c&H00FFFFFF&}THAT
+Dialogue: 0,0:00:13.25,0:00:13.88,Default,,0,0,0,,{\c&H00FFFFFF&}REVEALED {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}PATTERNS{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THAT
+Dialogue: 0,0:00:13.88,0:00:14.19,Default,,0,0,0,,{\c&H00FFFFFF&}REVEALED {\c&H00FFFFFF&}PATTERNS {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THAT{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:14.19,0:00:14.66,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}DEFIED{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}MODERN {\c&H00FFFFFF&}SCIENTIFIC
+Dialogue: 0,0:00:14.66,0:00:15.13,Default,,0,0,0,,{\c&H00FFFFFF&}DEFIED {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}MODERN{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}SCIENTIFIC
+Dialogue: 0,0:00:15.13,0:00:15.91,Default,,0,0,0,,{\c&H00FFFFFF&}DEFIED {\c&H00FFFFFF&}MODERN {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SCIENTIFIC{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:15.91,0:00:16.54,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}LOGIC.{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}WHEN {\c&H00FFFFFF&}THE
+Dialogue: 0,0:00:16.54,0:00:16.83,Default,,0,0,0,,{\c&H00FFFFFF&}LOGIC. {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}WHEN{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THE
+Dialogue: 0,0:00:16.83,0:00:17.06,Default,,0,0,0,,{\c&H00FFFFFF&}LOGIC. {\c&H00FFFFFF&}WHEN {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:17.06,0:00:17.43,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}FINAL{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}RESULTS {\c&H00FFFFFF&}WERE
+Dialogue: 0,0:00:17.43,0:00:17.95,Default,,0,0,0,,{\c&H00FFFFFF&}FINAL {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}RESULTS{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}WERE
+Dialogue: 0,0:00:17.95,0:00:18.24,Default,,0,0,0,,{\c&H00FFFFFF&}FINAL {\c&H00FFFFFF&}RESULTS {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}WERE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:18.24,0:00:19.06,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}UNVEILED,{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}IT {\c&H00FFFFFF&}CHANGED
+Dialogue: 0,0:00:19.06,0:00:19.21,Default,,0,0,0,,{\c&H00FFFFFF&}UNVEILED, {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}IT{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}CHANGED
+Dialogue: 0,0:00:19.21,0:00:19.73,Default,,0,0,0,,{\c&H00FFFFFF&}UNVEILED, {\c&H00FFFFFF&}IT {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}CHANGED{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:19.73,0:00:19.95,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}OUR{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}ENTIRE {\c&H00FFFFFF&}PERSPECTIVE
+Dialogue: 0,0:00:19.95,0:00:20.39,Default,,0,0,0,,{\c&H00FFFFFF&}OUR {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}ENTIRE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}PERSPECTIVE
+Dialogue: 0,0:00:20.39,0:00:21.21,Default,,0,0,0,,{\c&H00FFFFFF&}OUR {\c&H00FFFFFF&}ENTIRE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}PERSPECTIVE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:21.21,0:00:21.95,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}FOREVER.{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}DROP {\c&H00FFFFFF&}A
+Dialogue: 0,0:00:21.95,0:00:22.23,Default,,0,0,0,,{\c&H00FFFFFF&}FOREVER. {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}DROP{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}A
+Dialogue: 0,0:00:22.23,0:00:22.30,Default,,0,0,0,,{\c&H00FFFFFF&}FOREVER. {\c&H00FFFFFF&}DROP {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}A{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:22.30,0:00:22.80,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}COMMENT{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}IF {\c&H00FFFFFF&}YOU
+Dialogue: 0,0:00:22.80,0:00:22.94,Default,,0,0,0,,{\c&H00FFFFFF&}COMMENT {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}IF{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}YOU
+Dialogue: 0,0:00:22.94,0:00:23.15,Default,,0,0,0,,{\c&H00FFFFFF&}COMMENT {\c&H00FFFFFF&}IF {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}YOU{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:23.15,0:00:23.65,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}BELIEVE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}THIS {\c&H00FFFFFF&}IS
+Dialogue: 0,0:00:23.65,0:00:23.93,Default,,0,0,0,,{\c&H00FFFFFF&}BELIEVE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}THIS{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}IS
+Dialogue: 0,0:00:23.93,0:00:24.07,Default,,0,0,0,,{\c&H00FFFFFF&}BELIEVE {\c&H00FFFFFF&}THIS {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}IS{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:24.07,0:00:24.57,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}REAL,{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}AND {\c&H00FFFFFF&}SUBSCRIBE
+Dialogue: 0,0:00:24.57,0:00:24.78,Default,,0,0,0,,{\c&H00FFFFFF&}REAL, {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}AND{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}SUBSCRIBE
+Dialogue: 0,0:00:24.78,0:00:25.42,Default,,0,0,0,,{\c&H00FFFFFF&}REAL, {\c&H00FFFFFF&}AND {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}SUBSCRIBE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:25.42,0:00:25.63,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}FOR{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}MORE {\c&H00FFFFFF&}DAILY
+Dialogue: 0,0:00:25.63,0:00:25.91,Default,,0,0,0,,{\c&H00FFFFFF&}FOR {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}MORE{\c&H00FFFFFF&\fscx100\fscy100} {\c&H00FFFFFF&}DAILY
+Dialogue: 0,0:00:25.91,0:00:26.27,Default,,0,0,0,,{\c&H00FFFFFF&}FOR {\c&H00FFFFFF&}MORE {\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}DAILY{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 0,0:00:26.27,0:00:27.40,Default,,0,0,0,,{\c&H0000E6FF&\t(0,80,\fscx108\fscy108)}BREAKTHROUGHS.{\c&H00FFFFFF&\fscx100\fscy100}
