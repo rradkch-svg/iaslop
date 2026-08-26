@@ -15,6 +15,7 @@ ENV/
 .env.*.local
 
 # Storage & Temporary Render Artifacts
+tools/
 storage/projects/*/video/temp/
 storage/projects/*/*.mp4
 storage/projects/*/*.mp3
