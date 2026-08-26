@@ -22,11 +22,12 @@ class VideoEngine:
         output_video_path: Path,
         video_format: VideoFormat = VideoFormat.SHORTS_9_16,
         bgm_track: BGMTrack = BGMTrack.CINEMATIC,
-        bgm_volume: float = 0.15
+        bgm_volume: float = 0.14,
+        sfx_timeline: Optional[List[dict]] = None
     ) -> bool:
         """
         Step 7: Compiles all visual scene clips with Ken Burns camera motion,
-        mixes audio with background music, and burns interactive karaoke subtitles.
+        mixes audio with SFX impacts + ducked background music, and burns interactive karaoke subtitles.
         """
         temp_dir = project_dir / "video" / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -85,13 +86,14 @@ class VideoEngine:
             print(f"Concat error: {err}")
             return False
 
-        # 3. Mix audio (Voice + BGM)
+        # 3. Mix audio (Voice + SFX + BGM)
         mixed_audio_path = temp_dir / "mixed_audio.aac"
-        audio_mixer.mix_voice_and_bgm(
+        audio_mixer.mix_complete_audio_track(
             voice_path=voice_audio_path,
             output_path=mixed_audio_path,
             bgm_type=bgm_track,
-            bgm_volume=bgm_volume
+            bgm_volume=bgm_volume,
+            sfx_timeline=sfx_timeline
         )
 
         total_audio_duration = get_media_duration(mixed_audio_path)

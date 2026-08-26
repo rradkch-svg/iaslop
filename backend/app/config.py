@@ -9,16 +9,18 @@ STORAGE_DIR = BASE_DIR / "storage" / "projects"
 SETTINGS_FILE = BASE_DIR / "storage" / "settings.json"
 ASSETS_DIR = BACKEND_DIR / "assets"
 BGM_DIR = ASSETS_DIR / "bgm"
+SFX_DIR = ASSETS_DIR / "sfx"
 FONTS_DIR = ASSETS_DIR / "fonts"
 FRONTEND_STATIC_DIR = BASE_DIR / "frontend" / "static"
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 BGM_DIR.mkdir(parents=True, exist_ok=True)
+SFX_DIR.mkdir(parents=True, exist_ok=True)
 FONTS_DIR.mkdir(parents=True, exist_ok=True)
 
 class Settings:
     # App Config
-    APP_NAME: str = "YouTube AI Video Studio"
+    APP_NAME: str = "Minuto Inexplicável AI Studio"
     HOST: str = "127.0.0.1"
     PORT: int = 8000
     DEBUG: bool = True

@@ -16,11 +16,11 @@ export const API = {
     return await res.json();
   },
 
-  async generateTopics(genreId, videoFormat = "shorts_9_16") {
+  async generateTopics(count = 3) {
     const res = await fetch(`${API_BASE}/api/topics/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ genre_id: genreId, video_format: videoFormat })
+      body: JSON.stringify({ count })
     });
     return await res.json();
   },
@@ -77,11 +77,11 @@ export const API = {
     return await res.json();
   },
 
-  async createProject(topic, video_format = "shorts_9_16") {
+  async createProject(topic) {
     const res = await fetch(`${API_BASE}/api/projects/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, video_format })
+      body: JSON.stringify({ topic, video_format: "shorts_9_16" })
     });
     return await res.json();
   },
@@ -92,97 +92,30 @@ export const API = {
     return await res.json();
   },
 
-  // Step 1: Script
-  async generateScript(projectId, { topic, video_format, tone, target_duration, user_notes }) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/script`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, video_format, tone, target_duration, user_notes })
-    });
-    return await res.json();
-  },
-
-  // Step 2 & 3: Audio & Timestamps
-  async generateAudio(projectId, { script_text, voice_id, rate, pitch }) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/audio`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: projectId, script_text, voice_id, rate, pitch })
-    });
-    return await res.json();
-  },
-
-  // Step 4: Prompts
-  async generatePrompts(projectId, { topic, style_preference }) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/prompts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: projectId, topic, style_preference })
-    });
-    return await res.json();
-  },
-
-  // Step 5: Images
-  async generateImages(projectId, sceneId = null, promptOverride = null) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/images`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project_id: projectId,
-        scene_id: sceneId,
-        prompt_override: promptOverride
-      })
-    });
-    return await res.json();
-  },
-
-  // Step 6: Subtitles
-  async generateSubtitles(projectId, style = "hormozi") {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/subtitles?style=${style}`, {
-      method: "POST"
-    });
-    return await res.json();
-  },
-
-  // Step 7: Render Video
-  async renderVideo(projectId, { video_format, subtitle_style, bgm_track, bgm_volume }) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/render`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project_id: projectId,
-        video_format,
-        subtitle_style,
-        bgm_track,
-        bgm_volume
-      })
-    });
-    return await res.json();
-  },
-
-  // Step 8: Metadata
-  async generateMetadata(projectId) {
-    const res = await fetch(`${API_BASE}/api/projects/${projectId}/metadata`, {
-      method: "POST"
-    });
-    return await res.json();
-  },
-
-  // Step 9: Thumbnail
-  async generateThumbnail(projectId, customText = null) {
-    let url = `${API_BASE}/api/projects/${projectId}/thumbnail`;
-    if (customText) url += `?custom_text=${encodeURIComponent(customText)}`;
-    const res = await fetch(url, { method: "POST" });
-    return await res.json();
-  },
-
-  // 1-Click AutoPilot
+  // 1-Click Multi-Agent AutoPilot
   async triggerAutoPilot(data) {
     const res = await fetch(`${API_BASE}/api/autopilot`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     });
+    return await res.json();
+  },
+
+  // Batch Routines API
+  async startBatchRoutine(data) {
+    const res = await fetch(`${API_BASE}/api/routines/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Erro ao iniciar rotina");
+    return result;
+  },
+
+  async getRoutineStatus() {
+    const res = await fetch(`${API_BASE}/api/routines/status`);
     return await res.json();
   }
 };

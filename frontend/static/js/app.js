@@ -7,10 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
     voices: [],
     apiKeysStatus: {},
     youtubeStatus: { authenticated: false },
-    activePollingInterval: null
+    activePollingInterval: null,
+    activeRoutineInterval: null,
+    selectedBatchCount: 3
   };
 
-  // DOM Elements - Settings & Modals
+  // DOM Elements - Settings Modal
   const openSettingsBtn = document.getElementById("open-settings-btn");
   const closeSettingsBtn = document.getElementById("close-settings-btn");
   const doneSettingsBtn = document.getElementById("done-settings-btn");
@@ -27,6 +29,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const connectYoutubeBtn = document.getElementById("connect-youtube-btn");
   const youtubeAuthStatus = document.getElementById("youtube-auth-status");
 
+  // DOM Elements - Routine Drawer
+  const openRoutineDrawerBtn = document.getElementById("open-routine-drawer-btn");
+  const closeRoutineDrawerBtn = document.getElementById("close-routine-drawer-btn");
+  const routineDrawer = document.getElementById("routine-drawer");
+  const routineDrawerBackdrop = document.getElementById("routine-drawer-backdrop");
+  const batchCountButtons = document.querySelectorAll(".batch-count-btn");
+  const routineVoiceSelect = document.getElementById("routine-voice-select");
+  const routineBgmSelect = document.getElementById("routine-bgm-select");
+  const btnStartRoutine = document.getElementById("btn-start-routine");
+  const routineProgressPanel = document.getElementById("routine-progress-panel");
+  const routineStatusLabel = document.getElementById("routine-status-label");
+  const routineCounterLabel = document.getElementById("routine-counter-label");
+  const routineCurrentTopic = document.getElementById("routine-current-topic");
+  const routineLogsConsole = document.getElementById("routine-logs-console");
+
   // DOM Elements - Generation Form
   const btnResetForm = document.getElementById("btn-reset-form");
   const autoTopicInput = document.getElementById("auto-topic");
@@ -34,7 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const suggestedTopicsContainer = document.getElementById("suggested-topics-container");
   const topicsChipsList = document.getElementById("topics-chips-list");
 
-  const autoFormat = document.getElementById("auto-format");
   const autoVoiceSelect = document.getElementById("auto-voice-select");
   const autoStyleSelect = document.getElementById("auto-style-select");
   const autoBgmSelect = document.getElementById("auto-bgm-select");
@@ -106,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await API.getYoutubeStatus();
       state.youtubeStatus = res;
       if (res.authenticated) {
-        youtubeAuthStatus.innerHTML = `<span class="text-emerald-400 font-bold">✓ Conectado: ${res.title || "Canal YouTube"}</span>`;
+        youtubeAuthStatus.innerHTML = `<span class="text-emerald-400 font-bold">✓ Conectado: ${res.title || "Minuto Inexplicável"}</span>`;
       } else {
         youtubeAuthStatus.textContent = "Status: Não conectado";
       }
@@ -127,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
   testGeminiBtn.addEventListener("click", async () => {
     const key = keyGeminiInput.value.trim();
     if (!key) {
-      showToast("Insira sua chave do Google Gemini.", "error");
+      showToast("Insira a chave do Google Gemini.", "error");
       return;
     }
     testGeminiBtn.textContent = "Testando...";
@@ -152,24 +168,15 @@ document.addEventListener("DOMContentLoaded", () => {
   testGroqBtn.addEventListener("click", async () => {
     const key = keyGroqInput.value.trim();
     if (!key) {
-      showToast("Insira sua chave da Groq.", "error");
+      showToast("Insira a chave da Groq.", "error");
       return;
     }
-    testGroqBtn.textContent = "Testando...";
-    testGroqBtn.disabled = true;
     try {
       const res = await API.saveApiKeys({ test_provider: "groq", groq: key });
-      if (res.valid) {
-        showToast(res.message, "success");
-      } else {
-        showToast(res.message, "error");
-      }
+      showToast(res.message || "Chave salva!", "success");
       checkApiKeys();
     } catch (e) {
       showToast(e.message, "error");
-    } finally {
-      testGroqBtn.textContent = "Testar & Salvar";
-      testGroqBtn.disabled = false;
     }
   });
 
@@ -204,32 +211,122 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ---------------- ROUTINE DRAWER TOGGLES ----------------
+  function openDrawer() {
+    routineDrawer.classList.remove("translate-x-full");
+    routineDrawerBackdrop.classList.remove("hidden");
+  }
+  function closeDrawer() {
+    routineDrawer.classList.add("translate-x-full");
+    routineDrawerBackdrop.classList.add("hidden");
+  }
+
+  openRoutineDrawerBtn.addEventListener("click", openDrawer);
+  closeRoutineDrawerBtn.addEventListener("click", closeDrawer);
+  routineDrawerBackdrop.addEventListener("click", closeDrawer);
+
+  // Batch Count Buttons
+  batchCountButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      batchCountButtons.forEach(b => {
+        b.classList.remove("active", "bg-purple-600", "text-white", "shadow");
+        b.classList.add("bg-slate-950", "text-slate-200");
+      });
+      btn.classList.add("active", "bg-purple-600", "text-white", "shadow");
+      btn.classList.remove("bg-slate-950", "text-slate-200");
+      state.selectedBatchCount = parseInt(btn.dataset.count, 10) || 3;
+    });
+  });
+
+  // Start Automated Batch Routine
+  btnStartRoutine.addEventListener("click", async () => {
+    const count = state.selectedBatchCount;
+    const voiceId = routineVoiceSelect.value;
+    const bgm = routineBgmSelect.value;
+
+    btnStartRoutine.disabled = true;
+    btnStartRoutine.innerHTML = `<span>⚡ Rotina em Execução...</span>`;
+
+    routineProgressPanel.classList.remove("hidden");
+    routineStatusLabel.textContent = `Status: Inicializando lote de ${count} Shorts...`;
+    routineCounterLabel.textContent = `[0/${count}]`;
+    routineCurrentTopic.textContent = "Gemini AI gerando curiosidades dinâmicas...";
+    routineLogsConsole.innerHTML = `<div class="text-purple-400">⚡ Rotina iniciada com ${count} Shorts de Curiosidades.</div>`;
+
+    try {
+      await API.startBatchRoutine({
+        count,
+        voice_id: voiceId,
+        subtitle_style: "hormozi",
+        bgm_track: bgm
+      });
+
+      showToast(`Rotina de ${count} Shorts iniciada com sucesso!`, "success");
+
+      // Poll routine status
+      if (state.activeRoutineInterval) clearInterval(state.activeRoutineInterval);
+      state.activeRoutineInterval = setInterval(async () => {
+        try {
+          const status = await API.getRoutineStatus();
+          if (status.is_running) {
+            routineStatusLabel.textContent = `Status: Produzindo Short ${status.current_index}/${status.total_videos}`;
+            routineCounterLabel.textContent = `[${status.completed_videos}/${status.total_videos}]`;
+            routineCurrentTopic.textContent = status.current_topic || "Processando...";
+            
+            if (status.logs) {
+              routineLogsConsole.innerHTML = status.logs.map(l => `<div class="py-0.5 font-mono text-[11px] text-slate-300">${l}</div>`).join("");
+              routineLogsConsole.scrollTop = routineLogsConsole.scrollHeight;
+            }
+            loadProjectsList();
+          } else {
+            clearInterval(state.activeRoutineInterval);
+            state.activeRoutineInterval = null;
+            btnStartRoutine.disabled = false;
+            btnStartRoutine.innerHTML = `<span>⚡ Iniciar Rotina Automática</span>`;
+            routineStatusLabel.textContent = `Status: Concluído ✓`;
+            if (status.logs) {
+              routineLogsConsole.innerHTML = status.logs.map(l => `<div class="py-0.5 font-mono text-[11px] text-emerald-300">${l}</div>`).join("");
+            }
+            showToast("🏆 Todos os Shorts da rotina foram finalizados!", "success");
+            loadProjectsList();
+          }
+        } catch (err) {
+          console.error("Routine poll error:", err);
+        }
+      }, 2000);
+
+    } catch (e) {
+      showToast("Erro ao iniciar rotina: " + e.message, "error");
+      btnStartRoutine.disabled = false;
+      btnStartRoutine.innerHTML = `<span>⚡ Iniciar Rotina Automática</span>`;
+    }
+  });
+
   // Reset form to start a new video
   btnResetForm.addEventListener("click", () => {
     autoTopicInput.value = "";
     suggestedTopicsContainer.classList.add("hidden");
     autopilotProgressContainer.classList.add("hidden");
     autoTopicInput.focus();
-    showToast("Pronto para criar um novo vídeo de curiosidades!", "info");
+    showToast("Pronto para criar um novo Short de Curiosidades!", "info");
   });
 
-  // Suggest Curiosities Topics with AI
+  // Suggest Curiosities Topics with Live Gemini AI
   btnSuggestTopics.addEventListener("click", async () => {
     btnSuggestTopics.disabled = true;
-    btnSuggestTopics.innerHTML = `<span>🎲 Gerando Ideias...</span>`;
+    btnSuggestTopics.innerHTML = `<span>🎲 Gemini Gerando...</span>`;
     try {
-      const format = autoFormat.value;
-      const res = await API.generateTopics("curiosidades", format);
+      const res = await API.generateTopics(3);
       const topics = res.topics || [];
       if (topics.length > 0) {
         topicsChipsList.innerHTML = "";
         topics.forEach(t => {
           const chip = document.createElement("div");
-          chip.className = "p-2.5 rounded-lg bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/60 cursor-pointer transition-all flex flex-col gap-0.5 group";
+          chip.className = "p-2.5 rounded-lg bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/60 cursor-pointer transition-all flex flex-col gap-0.5 group shadow";
           chip.innerHTML = `
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-200 group-hover:text-indigo-300 transition-colors">${t.topic}</span>
-              <span class="text-[10px] text-indigo-400 font-mono">Selecionar ↵</span>
+              <span class="text-[10px] text-indigo-400 font-mono">Usar Este ↵</span>
             </div>
             <p class="text-[11px] text-slate-400 line-clamp-1">${t.hook}</p>
           `;
@@ -242,10 +339,10 @@ document.addEventListener("DOMContentLoaded", () => {
         suggestedTopicsContainer.classList.remove("hidden");
       }
     } catch (e) {
-      showToast("Erro ao sugerir temas: " + e.message, "error");
+      showToast("Erro ao gerar temas: " + e.message, "error");
     } finally {
       btnSuggestTopics.disabled = false;
-      btnSuggestTopics.innerHTML = `<span>🎲 Sugerir Curiosidades com IA</span>`;
+      btnSuggestTopics.innerHTML = `<span>🎲 Gerar Curiosidades com Gemini</span>`;
     }
   });
 
@@ -255,12 +352,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const voiceData = await API.getVoices();
       state.voices = voiceData.voices || [];
       autoVoiceSelect.innerHTML = "";
+      routineVoiceSelect.innerHTML = "";
+
       state.voices.forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v.id;
-        opt.textContent = `${v.name} (${v.gender})`;
-        if (v.id === "en-US-ChristopherNeural") opt.selected = true;
-        autoVoiceSelect.appendChild(opt);
+        const opt1 = document.createElement("option");
+        opt1.value = v.id;
+        opt1.textContent = `${v.name} (${v.gender})`;
+        if (v.id === "en-US-ChristopherNeural") opt1.selected = true;
+        autoVoiceSelect.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = v.id;
+        opt2.textContent = `${v.name} (${v.gender})`;
+        if (v.id === "en-US-ChristopherNeural") opt2.selected = true;
+        routineVoiceSelect.appendChild(opt2);
       });
     } catch (e) {
       console.error("Error loading voices:", e);
@@ -278,23 +383,21 @@ document.addEventListener("DOMContentLoaded", () => {
       projectsHistoryList.innerHTML = "";
 
       if (state.projects.length === 0) {
-        projectsHistoryList.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">Nenhum projeto salvo ainda.</div>`;
+        projectsHistoryList.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">Nenhum Short salvo ainda.</div>`;
         return;
       }
 
       state.projects.forEach(p => {
-        const isShort = p.video_format === "shorts_9_16";
-        const formatIcon = isShort ? "📱" : "🖥️";
         const isDone = p.status === "completed";
         const statusBadge = isDone 
-          ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-semibold">✓ Pronto</span>`
+          ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-semibold">✓ 9:16 Pronto</span>`
           : `<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800/60 font-semibold">${p.status}</span>`;
 
         const item = document.createElement("div");
         item.className = "p-2.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/90 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-all flex items-center justify-between gap-2 group";
         item.innerHTML = `
           <div class="flex items-center gap-2.5 overflow-hidden">
-            <span class="text-base flex-shrink-0">${formatIcon}</span>
+            <span class="text-base flex-shrink-0">📱</span>
             <div class="flex flex-col min-w-0">
               <span class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">${p.title || p.topic || p.id}</span>
               <span class="text-[10px] text-slate-500 font-mono">${p.id}</span>
@@ -324,8 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const proj = await API.getProject(projectId);
       state.currentProject = proj;
       
-      const isShort = proj.video_format === "shorts_9_16";
-      videoStatusBadge.innerHTML = `<span class="text-emerald-400 font-semibold">✓ ${isShort ? "Shorts (9:16)" : "Long-form (16:9)"}</span>`;
+      videoStatusBadge.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Short Pronto (9:16 Vertical)</span>`;
 
       if (proj.final_video_path) {
         videoEmptyState.classList.add("hidden");
@@ -339,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
         metaTitleText.textContent = title;
         
         btnDownloadVideo.href = proj.final_video_path;
-        btnDownloadVideo.download = `${proj.id}_video.mp4`;
+        btnDownloadVideo.download = `${proj.id}_minuto_short.mp4`;
 
         if (proj.thumbnail && proj.thumbnail.thumbnail_url) {
           btnDownloadThumb.href = proj.thumbnail.thumbnail_url;
@@ -371,17 +473,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Direct YouTube Upload
   btnUploadYtDirect.addEventListener("click", async () => {
     if (!state.currentProject) {
-      showToast("Nenhum vídeo carregado no momento.", "error");
+      showToast("Nenhum Short carregado no momento.", "error");
       return;
     }
     btnUploadYtDirect.disabled = true;
-    btnUploadYtDirect.innerHTML = `<span>Publicando...</span>`;
+    btnUploadYtDirect.innerHTML = `<span>Publicando Short...</span>`;
 
     try {
       const proj = state.currentProject;
       const title = (proj.metadata && proj.metadata.titles && proj.metadata.titles[0]) || proj.title || proj.topic;
       const desc = (proj.metadata && proj.metadata.description) || "";
-      const tags = (proj.metadata && proj.metadata.tags) || [];
+      const tags = (proj.metadata && proj.metadata.tags) || ["shorts", "minuto inexplicavel"];
 
       const res = await API.uploadToYoutube(proj.id, {
         title,
@@ -392,10 +494,10 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (res.video_url) {
-        showToast("Vídeo postado no YouTube com sucesso!", "success");
+        showToast("Short publicado no YouTube com sucesso!", "success");
         ytResultBox.classList.remove("hidden");
         ytResultLink.href = res.video_url;
-        ytResultLink.textContent = `Assistir no YouTube: ${res.video_id}`;
+        ytResultLink.textContent = `Assistir Short no YouTube: ${res.video_id}`;
       }
     } catch (e) {
       showToast("Falha no upload do YouTube: " + e.message, "error");
@@ -405,44 +507,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ---------------- 1-CLICK AUTO-PILOT EXECUTION ----------------
+  // ---------------- 1-CLICK MULTI-AGENT SHORT CREATION ----------------
   btnStartAutopilot.addEventListener("click", async () => {
     let topic = autoTopicInput.value.trim();
-    const format = autoFormat.value;
     const voiceId = autoVoiceSelect.value;
     const subStyle = autoStyleSelect.value;
     const bgmTrack = autoBgmSelect.value;
     const artStyle = autoArtStyle.value;
 
     btnStartAutopilot.disabled = true;
-    btnStartAutopilot.innerHTML = `<span>🚀 Auto-Pilot em Execução...</span>`;
+    btnStartAutopilot.innerHTML = `<span>🚀 Multi-Agentes em Execução...</span>`;
 
     autopilotProgressContainer.classList.remove("hidden");
     autopilotProgressBar.style.width = "5%";
-    autopilotStatusText.textContent = "Status: Iniciando produção autônoma...";
-    autopilotLogs.innerHTML = `<div class="text-indigo-400">🚀 Disparo iniciado: Preparando pipeline de curiosidades...</div>`;
+    autopilotStatusText.textContent = "Status: Multi-Agentes ativados (Roteiro, SFX, Visual)...";
+    autopilotLogs.innerHTML = `<div class="text-indigo-400">🚀 Pipeline Multi-Agentes iniciado para Minuto Inexplicável...</div>`;
 
-    // If topic is empty, generate one with AI
+    // If topic is empty, dynamically generate with Gemini AI
     if (!topic) {
       try {
-        autopilotLogs.innerHTML += `<div class="text-slate-400">🎲 Nenhum tema fornecido. IA selecionando curiosidade viral...</div>`;
-        const topData = await API.generateTopics("curiosidades", format);
+        autopilotLogs.innerHTML += `<div class="text-slate-400">🎲 Gemini AI gerando curiosidade dinâmica inédita...</div>`;
+        const topData = await API.generateTopics(1);
         if (topData.topics && topData.topics.length > 0) {
           topic = topData.topics[0].topic;
           autoTopicInput.value = topic;
-          autopilotLogs.innerHTML += `<div class="text-emerald-400">✓ Curiosidade selecionada: "${topic}"</div>`;
+          autopilotLogs.innerHTML += `<div class="text-emerald-400">✓ Curiosidade gerada: "${topic}"</div>`;
         } else {
-          topic = "The Immortal Jellyfish and Biological Eternity";
+          topic = "The 1994 Oakville Gelatin Rain Mystery";
         }
       } catch (e) {
-        topic = "The Immortal Jellyfish and Biological Eternity";
+        topic = "The 1994 Oakville Gelatin Rain Mystery";
       }
     }
 
     try {
       const proj = await API.triggerAutoPilot({
         topic,
-        video_format: format,
+        video_format: "shorts_9_16",
         voice_id: voiceId,
         subtitle_style: subStyle,
         bgm_track: bgmTrack,
@@ -474,14 +575,14 @@ document.addEventListener("DOMContentLoaded", () => {
             clearInterval(state.activePollingInterval);
             state.activePollingInterval = null;
             btnStartAutopilot.disabled = false;
-            btnStartAutopilot.innerHTML = `<span>🚀 Iniciar Produção Completa em 1-Clique</span>`;
+            btnStartAutopilot.innerHTML = `<span>🚀 Gerar Short 100% Automático (Multi-Agentes)</span>`;
 
             if (updated.status === "completed") {
-              showToast("🎉 Vídeo de Curiosidades renderizado com sucesso!", "success");
+              showToast("🎉 Short de Curiosidades renderizado com sucesso!", "success");
               loadProjectIntoPlayer(updated.id);
               loadProjectsList();
             } else {
-              showToast("Auto-Pilot encontrou um erro. Veja o terminal de logs.", "error");
+              showToast("Erro durante a produção. Verifique o terminal de logs.", "error");
             }
           }
         } catch (err) {
@@ -490,9 +591,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 1500);
 
     } catch (e) {
-      showToast("Falha ao iniciar Auto-Pilot: " + e.message, "error");
+      showToast("Falha ao iniciar Multi-Agentes: " + e.message, "error");
       btnStartAutopilot.disabled = false;
-      btnStartAutopilot.innerHTML = `<span>🚀 Iniciar Produção Completa em 1-Clique</span>`;
+      btnStartAutopilot.innerHTML = `<span>🚀 Gerar Short 100% Automático (Multi-Agentes)</span>`;
     }
   });
 

@@ -45,31 +45,24 @@ class ImageService:
         seed = random.randint(1000, 999999)
 
         # 1. Try Pollinations.ai (Turbo Model - Fast, high aesthetic fidelity)
-        models_to_try = ["turbo", "flux"]
-        for m in models_to_try:
-            try:
-                encoded_prompt = urllib.parse.quote(clean_prompt)
-                url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model={m}&nologo=true&seed={seed}"
-                
-                async with httpx.AsyncClient(timeout=25.0) as client:
-                    res = await client.get(url)
-                    if res.status_code == 200 and len(res.content) > 5000:
-                        with open(local_path, "wb") as f:
-                            f.write(res.content)
-                        scene.local_image_path = str(local_path)
-                        scene.image_url = url
-                        return str(local_path)
-            except Exception as e:
-                print(f"Pollinations ({m}) error on scene {scene.id}: {e}")
-
-        # 2. Try High-Resolution Contextual Stock Photography (Unsplash Source)
         try:
-            # Extract key thematic keywords
-            words = [w for w in scene.speech_text.replace(",", "").replace(".", "").split() if len(w) > 4][:3]
-            keywords = ",".join(words) if words else "mystery,space,cinema"
-            stock_url = f"https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w={width}&h={height}&q=80"
+            encoded_prompt = urllib.parse.quote(clean_prompt)
+            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=turbo&nologo=true&seed={seed}"
             
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                res = await client.get(url)
+                if res.status_code == 200 and len(res.content) > 5000:
+                    with open(local_path, "wb") as f:
+                        f.write(res.content)
+                    scene.local_image_path = str(local_path)
+                    scene.image_url = url
+                    return str(local_path)
+        except Exception as e:
+            print(f"Pollinations error on scene {scene.id}: {e}")
+
+        # 2. Try High-Resolution Contextual Photography
+        try:
+            async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
                 res = await client.get(f"https://picsum.photos/{width}/{height}?random={seed}")
                 if res.status_code == 200 and len(res.content) > 5000:
                     with open(local_path, "wb") as f:
@@ -80,7 +73,7 @@ class ImageService:
         except Exception as e:
             print(f"Stock image fetch error for scene {scene.id}: {e}")
 
-        # 3. High-Aesthetic Photorealistic Gradient with Cinematic Framing (NO concentric circles)
+        # 3. High-Aesthetic Photorealistic Gradient with Cinematic Framing
         self._generate_aesthetic_fallback(local_path, width, height, scene.index, scene.speech_text)
         scene.local_image_path = str(local_path)
         return str(local_path)

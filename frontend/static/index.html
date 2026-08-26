@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YouTube Curiosities Studio — 100% Automático</title>
+  <title>Minuto Inexplicável — AI Shorts Studio</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -26,35 +26,120 @@
   </script>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
 
   <!-- TOP NAVIGATION HEADER -->
-  <header class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-3 flex items-center justify-between">
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-3 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-        <span class="text-xl">🎬</span>
+        <span class="text-xl">⏱️</span>
       </div>
       <div>
         <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
-          YouTube Curiosities Studio
-          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">100% Automático</span>
+          Minuto Inexplicável
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">Shorts 9:16 Exclusivo</span>
         </h1>
-        <p class="text-xs text-slate-400">Canal de Curiosidades · Roteiros, Voz Neural, Imagens IA, Legendas e Renderização</p>
+        <p class="text-xs text-slate-400">Estúdio Multi-Agentes · Ganchos Hipnóticos de 3s, SFX Cinemático e Produção Autônoma</p>
       </div>
     </div>
 
-    <!-- Actions & Settings -->
+    <!-- Actions & Drawer Trigger -->
     <div class="flex items-center gap-3">
+      <!-- Routine Drawer Toggle -->
+      <button id="open-routine-drawer-btn" class="px-3.5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600 hover:to-indigo-600 border border-purple-500/50 text-purple-200 hover:text-white transition-all flex items-center gap-1.5 shadow">
+        <span>⚡ Rotinas & Lote</span>
+        <span class="text-[9px] bg-purple-500 text-white px-1.5 py-0.2 rounded-full font-extrabold uppercase">Auto</span>
+      </button>
+
+      <!-- Settings -->
       <button id="open-settings-btn" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition-all flex items-center gap-2 shadow">
         <span>⚙️ Configurações & YouTube</span>
         <span id="api-status-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
       </button>
       
+      <!-- New Video -->
       <button id="btn-reset-form" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition-all flex items-center gap-1.5">
-        <span>+ Criar Novo Vídeo</span>
+        <span>+ Criar Novo Short</span>
       </button>
     </div>
   </header>
+
+  <!-- ==================== ABA RETRÁTIL LATERAL DE ROTINAS (SLIDE-OVER DRAWER) ==================== -->
+  <div id="routine-drawer-backdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden transition-opacity"></div>
+
+  <aside id="routine-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl p-6 flex flex-col gap-5 transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+    
+    <!-- Drawer Header -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div class="flex items-center gap-2.5">
+        <span class="text-xl">⚡</span>
+        <div>
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Rotinas em Lote</h3>
+          <p class="text-[11px] text-slate-400">Geração 100% autônoma de múltiplos Shorts com Gemini AI</p>
+        </div>
+      </div>
+      <button id="close-routine-drawer-btn" class="text-slate-400 hover:text-white text-lg font-bold p-1">✕</button>
+    </div>
+
+    <!-- Batch Configuration Form -->
+    <div class="flex flex-col gap-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-2">Quantidade de Shorts no Lote:</label>
+        <div class="grid grid-cols-4 gap-2">
+          <button type="button" data-count="1" class="batch-count-btn py-2 px-3 rounded-lg bg-slate-950 border border-slate-700 hover:border-purple-500 text-xs font-bold text-slate-200">1</button>
+          <button type="button" data-count="3" class="batch-count-btn active py-2 px-3 rounded-lg bg-purple-600 border border-purple-500 text-xs font-bold text-white shadow">3</button>
+          <button type="button" data-count="5" class="batch-count-btn py-2 px-3 rounded-lg bg-slate-950 border border-slate-700 hover:border-purple-500 text-xs font-bold text-slate-200">5</button>
+          <button type="button" data-count="10" class="batch-count-btn py-2 px-3 rounded-lg bg-slate-950 border border-slate-700 hover:border-purple-500 text-xs font-bold text-slate-200">10</button>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Voz Neural Padrão:</label>
+        <select id="routine-voice-select" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-purple-500 outline-none">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Trilha Sonora Padrão:</label>
+        <select id="routine-bgm-select" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:border-purple-500 outline-none">
+          <option value="cinematic" selected>🎵 Cinematic Ambient (Mistério & Tensão)</option>
+          <option value="epic">⚔️ Epic & Inspiring</option>
+          <option value="lofi">☕ Lo-Fi Chill</option>
+        </select>
+      </div>
+
+      <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-800/40 flex flex-col gap-1.5">
+        <span class="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+          <span>🧠 Modo Multi-Agentes de Curiosidades</span>
+        </span>
+        <p class="text-[11px] text-slate-400 leading-relaxed">O Gemini AI gerará tópicos inéditos e misteriosos, otimizando os primeiros 3 segundos de cada Short com efeitos sonoros (SFX) e imagens 9:16.</p>
+      </div>
+
+      <button id="btn-start-routine" class="py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
+        <span>⚡ Iniciar Rotina Automática</span>
+      </button>
+    </div>
+
+    <!-- Live Routine Status & Progress -->
+    <div id="routine-progress-panel" class="hidden flex flex-col gap-3 pt-3 border-t border-slate-800">
+      <div class="flex items-center justify-between text-xs font-mono">
+        <span id="routine-status-label" class="text-purple-400 font-bold">Status: Produzindo...</span>
+        <span id="routine-counter-label" class="text-slate-400 font-semibold">[0/3]</span>
+      </div>
+
+      <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/90 text-xs flex flex-col gap-1">
+        <span class="text-[10px] text-slate-500 uppercase font-semibold">Tópico Atual:</span>
+        <p id="routine-current-topic" class="text-white font-semibold line-clamp-2">Gerando tópico com Gemini...</p>
+      </div>
+
+      <!-- Routine Terminal Logs -->
+      <div id="routine-logs-console" class="p-3 bg-slate-950 rounded-lg border border-slate-800 max-h-48 overflow-y-auto flex flex-col gap-1 text-[11px] font-mono text-slate-300">
+        <div class="text-slate-500">Iniciando logs da rotina...</div>
+      </div>
+    </div>
+
+  </aside>
 
   <!-- SETTINGS & YOUTUBE MODAL -->
   <div id="settings-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
@@ -62,9 +147,9 @@
       <div class="flex justify-between items-start border-b border-slate-800 pb-3">
         <div>
           <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <span>⚙️ Configurações & Integrações</span>
+            <span>⚙️ Configurações & YouTube</span>
           </h3>
-          <p class="text-xs text-slate-400 mt-0.5">Gerencie suas chaves de IA e autenticação do canal no YouTube.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Gerencie a chave do Google Gemini e conexão do canal Minuto Inexplicável.</p>
         </div>
         <button id="close-settings-btn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
       </div>
@@ -74,7 +159,7 @@
         <div class="flex justify-between items-center">
           <label class="text-xs font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
             <span>✨ Google Gemini API Key</span>
-            <span class="text-[10px] px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-800/60 rounded">Gratuito Recomendado</span>
+            <span class="text-[10px] px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-800/60 rounded">Ativo (Gemini 3.6 Flash)</span>
           </label>
           <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[11px] text-indigo-400 hover:underline">Obter chave no Google AI Studio ↗</a>
         </div>
@@ -84,18 +169,17 @@
             Testar & Salvar
           </button>
         </div>
-        <p class="text-[11px] text-slate-400">Utiliza Gemini 2.5 Flash para geração ultra rápida de roteiros fascinantes e prompts cinematográficos.</p>
       </div>
 
       <!-- YouTube Data API v3 -->
       <div class="flex flex-col gap-3 p-3.5 rounded-xl bg-slate-900/90 border border-rose-900/40">
         <div class="flex justify-between items-center">
           <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span>🔴 YouTube Data API v3 (Auto-Upload)</span>
+            <span>🔴 YouTube Data API v3 (Minuto Inexplicável)</span>
           </label>
           <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="text-[11px] text-rose-400 hover:underline">Google Cloud Console ↗</a>
         </div>
-        <p class="text-[11px] text-slate-400">Carregue o arquivo <code class="text-rose-300">client_secrets.json</code> do seu projeto OAuth para enviar vídeos direto ao seu canal:</p>
+        <p class="text-[11px] text-slate-400">Carregue o arquivo <code class="text-rose-300">client_secrets.json</code> do OAuth para postar diretamente no seu canal:</p>
         
         <div class="flex items-center gap-2">
           <input id="youtube-secrets-file" type="file" accept=".json" class="text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer" />
@@ -107,7 +191,7 @@
         <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
           <span id="youtube-auth-status" class="text-xs text-slate-400">Status: Não conectado</span>
           <button id="connect-youtube-btn" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1">
-            <span>🔴 Conectar Canal do YouTube</span>
+            <span>🔴 Conectar Canal</span>
           </button>
         </div>
       </div>
@@ -119,12 +203,11 @@
             <span>⚡ Groq Cloud API Key</span>
             <span class="text-[10px] px-1.5 py-0.2 bg-indigo-950 text-indigo-300 border border-indigo-800/60 rounded">Opcional</span>
           </label>
-          <a href="https://console.groq.com/keys" target="_blank" class="text-[11px] text-indigo-400 hover:underline">Obter chave grátis ↗</a>
         </div>
         <div class="flex gap-2">
           <input id="key-groq-input" type="password" placeholder="gsk_..." class="flex-1 text-xs px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 font-mono outline-none focus:border-indigo-500" />
           <button id="test-groq-btn" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition-colors">
-            Testar & Salvar
+            Salvar
           </button>
         </div>
       </div>
@@ -140,7 +223,7 @@
   <!-- MAIN 2-COLUMN DASHBOARD -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-    <!-- ==================== COLUNA ESQUERDA: GERAÇÃO 100% AUTOMÁTICA ==================== -->
+    <!-- ==================== COLUNA ESQUERDA: GERAÇÃO INDIVIDUAL MULTI-AGENTES ==================== -->
     <div class="lg:col-span-6 flex flex-col gap-5">
       
       <!-- Card 1: Tema de Curiosidades -->
@@ -148,47 +231,41 @@
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <span class="text-base">💡</span>
-            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Tema de Curiosidades</h2>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Tema de Curiosidades & Mistérios</h2>
           </div>
           <button id="btn-suggest-topics" class="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-200 hover:text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow">
-            <span>🎲 Sugerir Curiosidades com IA</span>
+            <span>🎲 Gerar Curiosidades com Gemini</span>
           </button>
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1.5 font-medium">Digite o tema ou deixe em branco para a IA escolher automaticamente:</label>
-          <input id="auto-topic" type="text" class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none transition-all shadow-inner" placeholder="Ex: The Immortal Jellyfish: Biological Eternity" />
+          <label class="block text-xs text-slate-400 mb-1.5 font-medium">Digite o tema ou deixe em branco para a IA criar uma curiosidade misteriosa:</label>
+          <input id="auto-topic" type="text" class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none transition-all shadow-inner" placeholder="Ex: The 1994 Oakville Gelatin Rain Mystery" />
         </div>
 
         <!-- Topic Suggestions Container -->
         <div id="suggested-topics-container" class="hidden flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-          <span class="text-[11px] text-indigo-300 font-semibold uppercase tracking-wider">Ideias Virais Geradas (Clique para selecionar):</span>
+          <span class="text-[11px] text-indigo-300 font-semibold uppercase tracking-wider">Curiosidades Dinâmicas Geradas via Gemini (Clique para usar):</span>
           <div id="topics-chips-list" class="flex flex-col gap-2">
             <!-- Chips populated dynamically -->
           </div>
         </div>
       </div>
 
-      <!-- Card 2: Opções de Produção -->
+      <!-- Card 2: Opções de Produção do Short -->
       <div class="glass-panel p-5 flex flex-col gap-4">
-        <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
-          <span class="text-base">🎛️</span>
-          <h2 class="text-sm font-bold text-white uppercase tracking-wider">Opções de Produção</h2>
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🎛️</span>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Parâmetros de Áudio & Visual</h2>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800/60 font-semibold font-mono">📱 Shorts 9:16 (1080x1920)</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <!-- Formato -->
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Formato do Vídeo</label>
-            <select id="auto-format" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
-              <option value="shorts_9_16" selected>📱 YouTube Shorts (9:16 Vertical)</option>
-              <option value="long_16_9">🖥️ YouTube Long-form (16:9 Horizontal)</option>
-            </select>
-          </div>
-
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <!-- Voz Neural -->
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Voz Neural (Inglês)</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Voz Neural</label>
             <select id="auto-voice-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
               <!-- Populated dynamically -->
             </select>
@@ -198,39 +275,48 @@
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Estilo de Legenda</label>
             <select id="auto-style-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
-              <option value="hormozi" selected>🔥 Hormozi / TikTok (Amarelo Neon)</option>
+              <option value="hormozi" selected>🔥 Hormozi (Amarelo Neon)</option>
               <option value="high_energy">⚡ High Energy (Verde Neon)</option>
-              <option value="minimalist">📄 Documentary Minimalist</option>
+              <option value="minimalist">📄 Minimalist Bar</option>
             </select>
           </div>
 
           <!-- Trilha Sonora -->
           <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Trilha Sonora (BGM)</label>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Trilha Sonora</label>
             <select id="auto-bgm-select" class="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:border-indigo-500 outline-none">
-              <option value="cinematic" selected>🎵 Cinematic Ambient (Mistério)</option>
+              <option value="cinematic" selected>🎵 Cinematic Ambient</option>
               <option value="epic">⚔️ Epic & Inspiring</option>
               <option value="lofi">☕ Lo-Fi Chill</option>
               <option value="upbeat">⚡ Fast & Energetic</option>
-              <option value="none">🔇 Sem Música (Apenas Voz)</option>
+              <option value="none">🔇 Sem Música</option>
             </select>
           </div>
         </div>
 
-        <input id="auto-art-style" type="hidden" value="hyperrealistic cinematic 8k, volumetric atmospheric lighting" />
+        <!-- SFX Feature Highlight -->
+        <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center gap-2">
+            <span class="text-sm">🔔</span>
+            <span>Efeitos Sonoros (SFX): <strong class="text-emerald-400">Impacto 0.0s, Whooshes e Sinos Ativos</strong></span>
+          </div>
+          <span class="text-[10px] text-indigo-400 font-mono">Auto-Mixado</span>
+        </div>
+
+        <input id="auto-art-style" type="hidden" value="Cinematic 8k, dark mystery atmosphere, photorealistic, volumetric mist" />
       </div>
 
-      <!-- Card 3: Botão de Disparo & Console de Progresso -->
+      <!-- Card 3: Disparo 1-Clique & Monitor Multi-Agentes -->
       <div class="flex flex-col gap-3">
         <button id="btn-start-autopilot" class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 text-white font-bold text-base shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
-          <span>🚀 Iniciar Produção Completa em 1-Clique</span>
+          <span>🚀 Gerar Short 100% Automático (Multi-Agentes)</span>
         </button>
 
         <!-- Live Progress Console -->
         <div id="autopilot-progress-container" class="glass-panel p-4 rounded-xl flex flex-col gap-3 hidden border border-slate-800">
           <div class="flex justify-between items-center text-xs font-mono">
-            <span id="autopilot-status-text" class="text-indigo-400 font-semibold">Status: Inicializando pipeline...</span>
-            <span class="text-slate-500 text-[11px]">Stream em Tempo Real</span>
+            <span id="autopilot-status-text" class="text-indigo-400 font-semibold">Status: Inicializando Multi-Agentes...</span>
+            <span class="text-slate-500 text-[11px]">Minuto Inexplicável Pipeline</span>
           </div>
           
           <!-- Progress Bar -->
@@ -239,7 +325,7 @@
           </div>
           
           <!-- Logs Terminal -->
-          <div id="autopilot-logs" class="p-3 bg-slate-950/90 rounded-lg max-h-40 overflow-y-auto border border-slate-800/80 flex flex-col gap-1 text-[11px] font-mono text-slate-300">
+          <div id="autopilot-logs" class="p-3 bg-slate-950/90 rounded-lg max-h-44 overflow-y-auto border border-slate-800/80 flex flex-col gap-1 text-[11px] font-mono text-slate-300">
             <div class="text-slate-500">Aguardando início do processo...</div>
           </div>
         </div>
@@ -248,29 +334,29 @@
     </div>
 
 
-    <!-- ==================== COLUNA DIREITA: PLAYER, AÇÕES & HISTÓRICO ==================== -->
+    <!-- ==================== COLUNA DIREITA: PLAYER SHORTS 9:16 & HISTÓRICO ==================== -->
     <div class="lg:col-span-6 flex flex-col gap-5">
 
-      <!-- Card: Player do Vídeo & Publicação -->
+      <!-- Card: Player do Short & Publicação -->
       <div class="glass-panel p-5 flex flex-col gap-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <span class="text-base">📺</span>
-            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Player do Vídeo & Metadados</h2>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Preview do Short (9:16)</h2>
           </div>
           <span id="video-status-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium">Nenhum vídeo ativo</span>
         </div>
 
-        <!-- Video Player Display Container -->
-        <div id="video-preview-wrapper" class="w-full flex items-center justify-center bg-slate-950/90 rounded-xl overflow-hidden border border-slate-800 min-h-[300px] relative">
+        <!-- Video Player Display Container (Aspect Ratio 9:16) -->
+        <div id="video-preview-wrapper" class="w-full flex items-center justify-center bg-slate-950/90 rounded-xl overflow-hidden border border-slate-800 min-h-[380px] max-h-[520px] relative">
           <!-- Empty state placeholder -->
           <div id="video-empty-state" class="flex flex-col items-center justify-center p-8 text-center gap-3">
-            <span class="text-4xl opacity-40">🎬</span>
-            <p class="text-xs text-slate-400 max-w-xs">Nenhum vídeo selecionado. Inicie a produção à esquerda para assistir aqui em tempo real!</p>
+            <span class="text-5xl opacity-40">📱</span>
+            <p class="text-xs text-slate-400 max-w-xs">Nenhum Short selecionado. Clique em Gerar para criar um novo vídeo com gancho de 3s e SFX!</p>
           </div>
 
-          <!-- Video Element (Hidden initially) -->
-          <video id="final-video-player" controls class="w-full max-h-[460px] object-contain hidden" playsinline></video>
+          <!-- Video Element (Aspect Ratio 9:16 vertical) -->
+          <video id="final-video-player" controls class="w-full max-h-[520px] object-contain aspect-shorts hidden" playsinline></video>
         </div>
 
         <!-- Metadata & Action Buttons Container (Hidden until video is ready) -->
@@ -279,7 +365,7 @@
           <!-- Title & SEO Preview -->
           <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800 flex flex-col gap-1.5">
             <div class="flex justify-between items-center">
-              <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Título Otimizado para Alta Retenção</span>
+              <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Título Otimizado para Shorts (Alta Retenção)</span>
               <button id="btn-copy-title" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
                 <span>📋 Copiar</span>
               </button>
@@ -289,7 +375,7 @@
 
           <!-- Download & YouTube Action Buttons -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <a id="btn-download-video" href="#" download="video_curiosities.mp4" class="py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 text-center">
+            <a id="btn-download-video" href="#" download="short_minuto.mp4" class="py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 text-center">
               <span>⬇️ Baixar MP4</span>
             </a>
 
@@ -304,19 +390,19 @@
 
           <!-- YouTube Upload Result -->
           <div id="yt-result-box" class="hidden p-3 rounded-lg bg-emerald-950/80 border border-emerald-800 text-xs text-emerald-300 flex items-center justify-between">
-            <span class="font-semibold">✓ Publicado no canal!</span>
-            <a id="yt-result-link" href="#" target="_blank" class="text-emerald-400 underline font-mono">Abrir Vídeo ↗</a>
+            <span class="font-semibold">✓ Publicado no canal Minuto Inexplicável!</span>
+            <a id="yt-result-link" href="#" target="_blank" class="text-emerald-400 underline font-mono">Abrir Short ↗</a>
           </div>
 
         </div>
       </div>
 
-      <!-- Card: Histórico de Vídeos Gerados -->
+      <!-- Card: Histórico de Shorts Gerados -->
       <div class="glass-panel p-5 flex flex-col gap-3">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <span class="text-base">📁</span>
-            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Histórico de Vídeos</h2>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Histórico de Shorts</h2>
           </div>
           <button id="btn-refresh-projects" class="text-xs text-slate-400 hover:text-white transition-colors">
             ↻ Atualizar
@@ -324,8 +410,8 @@
         </div>
 
         <!-- Project History List -->
-        <div id="projects-history-list" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-          <div class="text-xs text-slate-500 py-3 text-center">Carregando projetos...</div>
+        <div id="projects-history-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+          <div class="text-xs text-slate-500 py-3 text-center">Carregando Shorts...</div>
         </div>
       </div>
 

@@ -28,13 +28,13 @@ class ThumbnailService:
         width, height = 1280, 720
         seed = random.randint(1000, 999999)
         encoded_prompt = urllib.parse.quote(concept.thumbnail_prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=turbo&nologo=true&seed={seed}"
 
         # Download or create base image
         base_img_path = output_dir / "thumb_base.jpg"
         downloaded = False
         try:
-            async with httpx.AsyncClient(timeout=40.0) as client:
+            async with httpx.AsyncClient(timeout=12.0) as client:
                 res = await client.get(url)
                 if res.status_code == 200 and len(res.content) > 1000:
                     with open(base_img_path, "wb") as f:

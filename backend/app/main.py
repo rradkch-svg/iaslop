@@ -504,7 +504,46 @@ async def generate_thumbnail(project_id: str, custom_text: Optional[str] = None)
     save_project_state(project)
     return project
 
-# ----------------- 1-CLICK AUTO-PILOT PIPELINE -----------------
+from backend.app.services.agents.multi_agent_orchestrator import multi_agent_orchestrator
+from backend.app.services.routine_service import routine_service
+
+# ----------------- CONFIG, GENRES & API KEYS -----------------
+@app.get("/api/genres")
+async def get_genres():
+    return {"genres": settings.GENRES}
+
+@app.post("/api/topics/generate")
+async def generate_topics(data: Dict[str, Any]):
+    count = int(data.get("count", 3))
+    topics = await multi_agent_orchestrator.generate_dynamic_topics(count=count)
+    return {"topics": topics}
+
+# ----------------- BATCH ROUTINES ENDPOINTS -----------------
+@app.post("/api/routines/batch")
+async def start_batch_routine(data: Dict[str, Any], background_tasks: BackgroundTasks):
+    count = int(data.get("count", 3))
+    voice_id = data.get("voice_id", "en-US-ChristopherNeural")
+    subtitle_style = SubtitleStyle(data.get("subtitle_style", SubtitleStyle.HORMOZI))
+    bgm_track = BGMTrack(data.get("bgm_track", BGMTrack.CINEMATIC))
+
+    if routine_service._is_running:
+        return JSONResponse(status_code=400, content={"error": "Uma rotina já está em execução."})
+
+    background_tasks.add_task(
+        routine_service.execute_batch_routine,
+        count=count,
+        voice_id=voice_id,
+        subtitle_style=subtitle_style,
+        bgm_track=bgm_track
+    )
+
+    return {"message": f"Rotina iniciada para {count} Shorts!", "status": "started"}
+
+@app.get("/api/routines/status")
+async def get_routine_status():
+    return routine_service.get_routine_status()
+
+# ----------------- 1-CLICK MULTI-AGENT AUTO-PILOT PIPELINE -----------------
 async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
     try:
         project = load_project_state(project_id)
@@ -513,25 +552,22 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
 
         project.status = "generating"
         project.progress = 5
-        project.logs.append("🚀 Auto-Pilot Started: Executing 9-step video creation pipeline...")
+        project.logs.append("🚀 Multi-Agentes Ativados: Executando pipeline para Minuto Inexplicável...")
         save_project_state(project)
 
-        # 1. Script
-        script_res = await llm_service.generate_script(
-            topic=req.topic,
-            video_format=req.video_format,
-            tone="engaging",
-            target_duration=45 if req.video_format == VideoFormat.SHORTS_9_16 else 180
+        # 1. Multi-Agent Scriptwriting & 3s Hook Audit
+        script_res = await multi_agent_orchestrator.execute_script_phase(
+            topic=req.topic
         )
-        project.title = script_res["title_concept"]
-        project.full_script = script_res["full_script"]
-        project.speech_blocks = script_res["speech_blocks"]
+        project.title = script_res.get("title_concept", project.title)
+        project.full_script = script_res.get("full_script", "")
+        project.speech_blocks = script_res.get("speech_blocks", [])
         project.progress = 20
-        word_count = script_res.get("word_count", len(project.full_script.split()))
-        project.logs.append(f"✓ Step 1: Script generated ({word_count} words).")
+        word_count = len(project.full_script.split())
+        project.logs.append(f"✓ Agente Roteirista & Auditor: Roteiro otimizado ({word_count} palavras) com gancho de 3s.")
         save_project_state(project)
 
-        # 2 & 3. Audio & Timestamps
+        # 2 & 3. Neural Voice Narration & Word Boundaries
         project_dir = get_project_dir(project_id)
         audio_path = project_dir / "audio" / "narration.mp3"
         boundaries, word_ts, total_duration = await tts_service.generate_speech(
@@ -549,48 +585,55 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
         project.word_timestamps = word_ts
         project.scenes = scenes
         project.progress = 40
-        project.logs.append(f"✓ Step 2 & 3: Voice synthesized ({total_duration:.1f}s) & {len(scenes)} scenes aligned.")
+        project.logs.append(f"✓ Agente Sonoplasta: Narração gerada ({total_duration:.1f}s) e {len(scenes)} cenas sincronizadas.")
         save_project_state(project)
 
-        # 4. Scene Prompts
-        updated_scenes = await prompt_service.generate_prompts_for_scenes(
+        # 4. Multi-Agent Visual Director (Cinematographic Prompts & Motion)
+        updated_scenes = await multi_agent_orchestrator.execute_visual_direction_phase(
             topic=req.topic,
             scenes=scenes,
-            style_preference=req.art_style
+            style_theme=req.art_style
         )
         project.scenes = updated_scenes
         project.progress = 55
-        project.logs.append(f"✓ Step 4: Bespoke visual prompts created for {len(updated_scenes)} scenes.")
+        project.logs.append(f"✓ Agente Diretor Visual: Prompts cinematográficos 9:16 e movimentos Ken Burns definidos.")
         save_project_state(project)
 
-        # 5. Illustrations / Images
+        # 5. AI Image Illustrations
         images_dir = project_dir / "images"
         await image_service.generate_all_scene_images(
             scenes=updated_scenes,
             output_dir=images_dir,
-            video_format=req.video_format
+            video_format=VideoFormat.SHORTS_9_16
         )
         for s in project.scenes:
             if s.local_image_path:
                 s.image_url = f"/media/projects/{project_id}/images/{Path(s.local_image_path).name}"
         project.progress = 70
-        project.logs.append("✓ Step 5: Visual illustrations generated.")
+        project.logs.append("✓ Ilustrador: Imagens hiper-realistas 9:16 renderizadas.")
         save_project_state(project)
 
-        # 6. Subtitles
+        # 6. Interactive Karaoke Subtitles
         ass_path = project_dir / "subtitles" / "karaoke.ass"
         subtitle_service.generate_ass_subtitles(
             word_timestamps=project.word_timestamps,
             output_ass_path=ass_path,
             style=req.subtitle_style,
-            video_format=req.video_format
+            video_format=VideoFormat.SHORTS_9_16
         )
         project.subtitle_path = f"/media/projects/{project_id}/subtitles/karaoke.ass"
         project.progress = 80
-        project.logs.append("✓ Step 6: Interactive karaoke subtitles compiled.")
+        project.logs.append("✓ Agente de Legendas: Karaoke dinâmico sincronizado.")
         save_project_state(project)
 
-        # 7. Render Video
+        # 7. Sound Design SFX & Video Render
+        sfx_timeline = multi_agent_orchestrator.execute_sound_design_phase(
+            scenes=project.scenes,
+            word_timestamps=project.word_timestamps,
+            total_duration=total_duration
+        )
+        project.logs.append(f"✓ Agente Sonoplasta: {len(sfx_timeline)} efeitos sonoros (SFX whooshes, sinos e impactos) mixados.")
+
         out_video = project_dir / "video" / "final_video.mp4"
         video_engine.render_complete_video(
             project_dir=project_dir,
@@ -598,25 +641,26 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
             voice_audio_path=audio_path,
             ass_subtitle_path=ass_path,
             output_video_path=out_video,
-            video_format=req.video_format,
+            video_format=VideoFormat.SHORTS_9_16,
             bgm_track=req.bgm_track,
-            bgm_volume=0.15
+            bgm_volume=0.14,
+            sfx_timeline=sfx_timeline
         )
         project.final_video_path = f"/media/projects/{project_id}/video/final_video.mp4"
         project.progress = 90
-        project.logs.append("✓ Step 7: Video rendered with Ken Burns motion & BGM mix.")
+        project.logs.append("✓ Renderizador: Vídeo final compilado com Ken Burns + SFX + BGM.")
         save_project_state(project)
 
-        # 8. Metadata
-        meta = await metadata_service.generate_package(
+        # 8. YouTube SEO Package
+        meta = await multi_agent_orchestrator.execute_seo_phase(
             topic=project.topic,
             full_script=project.full_script
         )
         project.metadata = meta
-        project.logs.append("✓ Step 8: YouTube Titles, Description & Tags created.")
+        project.logs.append("✓ Agente Estrategista SEO: Título viral, descrição e tags para o Minuto Inexplicável.")
         save_project_state(project)
 
-        # 9. Thumbnail
+        # 9. High-CTR Thumbnail
         thumb_dir = project_dir / "thumbnail"
         thumb = await thumbnail_service.generate_thumbnail(
             topic=project.topic,
@@ -627,7 +671,7 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
         project.thumbnail = thumb
         project.progress = 100
         project.status = "completed"
-        project.logs.append("🎉 Step 9 Complete: All assets, video and thumbnail ready for YouTube publication!")
+        project.logs.append("🎉 Produção Multi-Agente Concluída! Vídeo pronto para publicação!")
         save_project_state(project)
 
     except Exception as e:
@@ -635,7 +679,7 @@ async def run_autopilot_pipeline(project_id: str, req: AutoPilotRequest):
         project = load_project_state(project_id)
         if project:
             project.status = "error"
-            project.logs.append(f"❌ Error during Auto-Pilot execution: {e}")
+            project.logs.append(f"❌ Erro durante a execução Multi-Agente: {e}")
             save_project_state(project)
 
 @app.post("/api/autopilot")
@@ -643,16 +687,16 @@ async def trigger_autopilot(req: AutoPilotRequest, background_tasks: BackgroundT
     project_id = f"proj_{uuid.uuid4().hex[:8]}"
     project = ProjectState(
         id=project_id,
-        title=f"Auto: {req.topic}",
+        title=f"Minuto: {req.topic}",
         topic=req.topic,
-        video_format=req.video_format,
+        video_format=VideoFormat.SHORTS_9_16,
         voice_id=req.voice_id,
         subtitle_style=req.subtitle_style,
         bgm_track=req.bgm_track,
         current_step=1,
         status="queued",
         progress=0,
-        logs=["Auto-Pilot project initialized."]
+        logs=["Projeto Multi-Agente inicializado."]
     )
     save_project_state(project)
 
@@ -663,3 +707,4 @@ async def trigger_autopilot(req: AutoPilotRequest, background_tasks: BackgroundT
 # Mount frontend static directory
 if FRONTEND_STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_STATIC_DIR), html=True), name="static")
+
