@@ -14,14 +14,11 @@ ENV/
 .env.local
 .env.*.local
 
-# Storage & Temporary Render Artifacts
+# Storage & API Keys & Temporary Render Artifacts
 tools/
-storage/projects/*/video/temp/
-storage/projects/*/*.mp4
-storage/projects/*/*.mp3
-storage/projects/*/*.jpg
-storage/projects/*/*.aac
-storage/projects/*/*.ass
+storage/settings.json
+storage/client_secrets.json
+storage/projects/
 
 # Editor & OS files
 .vscode/
