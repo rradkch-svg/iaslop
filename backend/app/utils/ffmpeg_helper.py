@@ -42,12 +42,12 @@ def get_media_duration(file_path: Path) -> float:
             errors="replace"
         )
         _, stderr = process.communicate()
-        # Parse Duration: 00:00:12.34
-        match = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", stderr)
+        # Parse Duration: 00:00:12.34 or 00:01:34.12
+        match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:[.,]\d+)?)", stderr)
         if match:
             hours = float(match.group(1))
             minutes = float(match.group(2))
-            seconds = float(match.group(3))
+            seconds = float(match.group(3).replace(",", "."))
             return hours * 3600 + minutes * 60 + seconds
     except Exception as e:
         print(f"Error getting media duration: {e}")
