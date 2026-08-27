@@ -23,6 +23,29 @@ except ImportError:
     except ImportError:
         VisualEngine = None
 
+def find_deno_binary() -> Optional[str]:
+    """Localiza o interpretador JavaScript Deno para resolver desafios de n-sig do YouTube."""
+    candidates = [
+        os.path.join(os.path.expanduser("~"), ".deno", "bin", "deno.exe"),
+        r"C:\Users\Aluno\.deno\bin\deno.exe",
+        "deno.exe",
+        "deno"
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            deno_dir = os.path.dirname(os.path.abspath(c))
+            if deno_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = f"{deno_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+            return c
+    return None
+
+find_deno_binary()
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception:
+    pass
+
 def find_cookies_file() -> Optional[str]:
     """Procura automaticamente por arquivo de cookies do YouTube no projeto ou diretório do usuário."""
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -287,6 +310,7 @@ class BRollEngine:
                     "extract_flat": "in_playlist",
                     "default_search": f"ytsearch{self.max_search_results}",
                     "noplaylist": True,
+                    "remote_components": ["ejs:github"],
                 }
                 if cookies_file:
                     ydl_opts_search["cookiefile"] = cookies_file
@@ -343,6 +367,7 @@ class BRollEngine:
                         "no_warnings": True,
                         "noplaylist": True,
                         "socket_timeout": 20,
+                        "remote_components": ["ejs:github"],
                         "http_headers": {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                             "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7",
