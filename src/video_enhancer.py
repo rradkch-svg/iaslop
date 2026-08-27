@@ -57,14 +57,17 @@ class VideoResolutionEnhancer:
     Motor de Upscaling, Restauração de Nitidez e Tratamento de Resolução HD para Clipes 9:16.
     """
 
-    def __init__(self, target_width: int = 1080, target_height: int = 1920):
+    def __init__(self, target_width: int = 1080, target_height: int = 1920, min_source_resolution: int = 480):
         self.target_width = target_width
         self.target_height = target_height
+        self.min_source_resolution = min_source_resolution
         self.ffmpeg_bin = find_ffmpeg_binary()
         self.ffprobe_bin = find_ffprobe_binary(self.ffmpeg_bin)
 
     def get_video_dimensions(self, video_path: str) -> Tuple[int, int]:
         """Obtém as dimensões atuais (largura, altura) de um arquivo de vídeo via ffprobe."""
+        if not video_path or not os.path.exists(video_path):
+            return 0, 0
         cmd = [
             self.ffprobe_bin, "-v", "error",
             "-select_streams", "v:0",
@@ -81,9 +84,26 @@ class VideoResolutionEnhancer:
             pass
         return 0, 0
 
+    def is_acceptable_resolution(self, video_path: str, min_height: int = 480) -> Tuple[bool, int, int]:
+        """
+        Verifica se o vídeo fonte possui resolução nativa aceitável (mínimo 480p).
+        Rejeita vídeos de 144p, 240p, 360p para garantir qualidade cinematográfica.
+        """
+        w, h = self.get_video_dimensions(video_path)
+        if w == 0 or h == 0:
+            return True, w, h # Se não foi possível inspecionar, não bloqueia por padrão
+        
+        min_dim = min(w, h)
+        max_dim = max(w, h)
+        
+        # Se tanto a menor dimensão for menor que min_height quanto a maior for menor que 720p
+        if min_dim < min_height and max_dim < 720:
+            return False, w, h
+        return True, w, h
+
     def build_enhancement_filter_graph(
         self,
-        sharpen_strength: float = 0.8,
+        sharpen_strength: float = 0.85,
         denoise: bool = True,
         contrast_boost: float = 1.05,
         saturation_boost: float = 1.08,
@@ -100,18 +120,17 @@ class VideoResolutionEnhancer:
         """
         filters = []
 
-        # 1. Escala de alta precisão com interpolação Lanczos
+        # 1. Escala de alta precisão com interpolação Lanczos e interpolação cromática total
         w = self.target_width
         h = self.target_height
         filters.append(f"scale={w}*16/9:{h}:force_original_aspect_ratio=increase:flags=lanczos+accurate_rnd+full_chroma_int")
-
 
         # 2. Recorte 9:16 centralizado
         filters.append(f"crop={w}:{h}:(in_w-{w})/2:(in_h-{h})/2")
 
         # 3. Denoise sutil para limpar artefatos de compressão em filmagens de arquivo
         if denoise:
-            filters.append("hqdn3d=1.2:1.2:2.5:2.5")
+            filters.append("hqdn3d=1.0:1.0:2.0:2.0")
 
         # 4. Unsharp Masking para ganho de micro-contraste e nitidez de borda
         if sharpen_strength > 0:
@@ -132,7 +151,7 @@ class VideoResolutionEnhancer:
         self,
         input_path: str,
         output_path: str,
-        sharpen_strength: float = 0.8,
+        sharpen_strength: float = 0.85,
         denoise: bool = True,
         contrast_boost: float = 1.05,
         saturation_boost: float = 1.08,
@@ -171,8 +190,10 @@ class VideoResolutionEnhancer:
                 "-i", input_path,
                 "-vf", filter_graph,
                 "-c:v", "libx264",
-                "-crf", "17",
+                "-crf", "16",
                 "-preset", "fast",
+                "-profile:v", "high",
+                "-level", "4.1",
                 "-pix_fmt", "yuv420p",
                 "-an",
                 temp_output
@@ -198,7 +219,7 @@ class VideoResolutionEnhancer:
                     "-i", input_path,
                     "-vf", fallback_filter,
                     "-c:v", "libx264",
-                    "-crf", "18",
+                    "-crf", "16",
                     "-preset", "fast",
                     "-pix_fmt", "yuv420p",
                     "-an",
@@ -214,4 +235,4 @@ class VideoResolutionEnhancer:
                     return False, err_msg
 
 # Instância padrão global
-DEFAULT_VIDEO_ENHANCER = VideoResolutionEnhancer()
+DEFAULT_VIDEO_ENHANCER = VideoResolutionEnhancer(min_source_resolution=480)

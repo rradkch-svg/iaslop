@@ -166,21 +166,25 @@ def build_topic_queries(global_topic: str, base_query: str) -> List[str]:
         if has_anchor:
             queries.append(base_clean)
             if not base_lower.endswith("4k") and not base_lower.endswith("hd"):
+                queries.append(f"{base_clean} 1080p HD")
                 queries.append(f"{base_clean} 4k")
         else:
             # Ancora obrigatoriamente a query com o tema central
             anchored = f"{topic_kw} {base_clean}".strip()
             queries.append(anchored)
+            queries.append(f"{anchored} 1080p HD")
             queries.append(f"{anchored} 4k")
             
     if topic_kw:
         queries.extend([
+            f"{topic_kw} documentary footage 1080p",
             f"{topic_kw} documentary footage 4k",
-            f"{topic_kw} real archival footage",
+            f"{topic_kw} real archival footage HD",
             f"{topic_kw} satellite drone view 4k",
             f"{topic_kw} expedition history documentary",
-            f"{topic_kw} mystery investigation 4k"
+            f"{topic_kw} mystery investigation HD"
         ])
+
         
     unique_queries = []
     for q in queries:
@@ -358,13 +362,13 @@ class BRollEngine:
                             app_logger.info(f"[BRollEngine] Candidato '{vid_title}' descartado pelo pré-filtro: {pre_reason}")
                             continue
 
-                    safe_status(status_callback, f"📥 Baixando candidato HD: **{vid_title[:45]}...**")
+                    safe_status(status_callback, f"📥 Baixando candidato HD nativo: **{vid_title[:45]}...**")
 
                     temp_raw_file = os.path.join(tempfile.gettempdir(), f"broll_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
                     temp_cut_clip = os.path.join(tempfile.gettempdir(), f"broll_cut_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
 
                     ydl_opts_download = {
-                        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+                        "format": "bestvideo[height>=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=1080]+bestaudio/bestvideo[height>=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=720]+bestaudio/bestvideo[height>=480]+bestaudio/best[height>=720]/best[height>=480]/bestvideo+bestaudio/best",
                         "merge_output_format": "mp4",
                         "outtmpl": temp_raw_file,
                         "quiet": True,
@@ -396,7 +400,7 @@ class BRollEngine:
                             else:
                                 continue
 
-                        # 2. Validação Empírica da Duração Real com FFprobe
+                        # 2. Validação Empírica da Duração e Resolução Nativa Mínima (Corte de <480p)
                         actual_dur = get_video_duration(temp_raw_file, self.ffmpeg_bin)
                         if not actual_dur or actual_dur < 1.0:
                             app_logger.warning(f"[BRollEngine] Arquivo corrompido ou sem duração detectável: {temp_raw_file}")
@@ -406,6 +410,22 @@ class BRollEngine:
                                 except:
                                     pass
                             continue
+
+                        # Validação de Resolução Nativa: Descarta vídeos em baixa qualidade (144p, 240p, 360p)
+                        if DEFAULT_VIDEO_ENHANCER:
+                            is_ok_res, raw_w, raw_h = DEFAULT_VIDEO_ENHANCER.is_acceptable_resolution(temp_raw_file, min_height=480)
+                            if not is_ok_res:
+                                safe_status(status_callback, f"🚫 Vídeo descartado por baixa resolução nativa ({raw_w}x{raw_h} < 480p) -> Buscando vídeo em alta resolução...")
+                                app_logger.info(f"[BRollEngine] Vídeo '{vid_title}' ({raw_w}x{raw_h}) descartado: resolução inferior a 480p.")
+                                if os.path.exists(temp_raw_file):
+                                    try:
+                                        os.remove(temp_raw_file)
+                                    except:
+                                        pass
+                                continue
+                            else:
+                                app_logger.info(f"[BRollEngine] Resolução nativa aprovada: {raw_w}x{raw_h} para '{vid_title}'")
+
 
                         # 3. Varredura Multi-Trechos Inteligente com Limites Estritos de Duração
                         if actual_dur <= target_duration:
