@@ -83,27 +83,17 @@ def assemble_multi_scene_video(
                 f.write(f"file '{safe_cp}'\n")
 
         if status_callback:
-            status_callback("⚡ Concatenando e aplicando tratamento HD de resolução em todas as cenas...")
+            status_callback("⚡ Concatenando trilha de cenas (B-rolls e visual 9:16)...")
 
-        # 2. Concatenação com tratamento HD de nitidez, denoise e contraste
-        enhanced_filter = (
-            "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos+accurate_rnd+full_chroma_int,"
-            "crop=1080:1920:(in_w-1080)/2:(in_h-1920)/2,"
-            "hqdn3d=1.0:1.0:2.0:2.0,"
-            "unsharp=5:5:0.7:3:3:0.3,"
-            "eq=contrast=1.04:brightness=0.01:saturation=1.06,"
-            "setsar=1,"
-            "fps=30"
-        )
-
+        # 2. Concatenação de vídeo com escala Lanczos e qualidade HD limpa
         cmd_concat = [
             ffmpeg_bin, "-y",
             "-f", "concat",
             "-safe", "0",
             "-i", concat_txt,
-            "-vf", enhanced_filter,
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1",
             "-c:v", "libx264",
-            "-crf", "17",
+            "-crf", "18",
             "-preset", "fast",
             "-pix_fmt", "yuv420p",
             "-r", "30",
@@ -113,29 +103,11 @@ def assemble_multi_scene_video(
 
         try:
             subprocess.run(cmd_concat, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
-            app_logger.info(f"[RenderEngine] Cenas unificadas em Full HD: {combined_scenes_mp4}")
+            app_logger.info(f"[RenderEngine] Cenas unificadas em: {combined_scenes_mp4}")
         except subprocess.CalledProcessError as e:
-            app_logger.warning(f"[RenderEngine] Falha no filtro HD composto ({e.stderr}). Tentando concatenação direta Lanczos...")
-            
-            # Fallback direto Lanczos
-            cmd_concat_fallback = [
-                ffmpeg_bin, "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", concat_txt,
-                "-vf", "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,setsar=1,fps=30",
-                "-c:v", "libx264",
-                "-crf", "18",
-                "-preset", "fast",
-                "-pix_fmt", "yuv420p",
-                "-an",
-                combined_scenes_mp4
-            ]
-            try:
-                subprocess.run(cmd_concat_fallback, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
-                app_logger.info(f"[RenderEngine] Cenas unificadas via fallback Lanczos: {combined_scenes_mp4}")
-            except subprocess.CalledProcessError as e2:
-                return False, f"Falha na união de cenas: {e2.stderr}"
+            app_logger.error(f"[RenderEngine] Falha na concatenação de cenas: {e.stderr}")
+            return False, f"Falha na união de cenas: {e.stderr}"
+
 
         # 3. Determina a trilha BGM de suspense
         chosen_bgm = bgm_path

@@ -17,15 +17,11 @@ except ImportError:
 
 try:
     from .visual_engine import VisualEngine
-    from .video_enhancer import DEFAULT_VIDEO_ENHANCER
 except ImportError:
     try:
         from visual_engine import VisualEngine
-        from video_enhancer import DEFAULT_VIDEO_ENHANCER
     except ImportError:
         VisualEngine = None
-        DEFAULT_VIDEO_ENHANCER = None
-
 
 def find_deno_binary() -> Optional[str]:
     """Localiza o interpretador JavaScript Deno para resolver desafios de n-sig do YouTube."""
@@ -166,25 +162,21 @@ def build_topic_queries(global_topic: str, base_query: str) -> List[str]:
         if has_anchor:
             queries.append(base_clean)
             if not base_lower.endswith("4k") and not base_lower.endswith("hd"):
-                queries.append(f"{base_clean} 1080p HD")
                 queries.append(f"{base_clean} 4k")
         else:
             # Ancora obrigatoriamente a query com o tema central
             anchored = f"{topic_kw} {base_clean}".strip()
             queries.append(anchored)
-            queries.append(f"{anchored} 1080p HD")
             queries.append(f"{anchored} 4k")
             
     if topic_kw:
         queries.extend([
-            f"{topic_kw} documentary footage 1080p",
             f"{topic_kw} documentary footage 4k",
-            f"{topic_kw} real archival footage HD",
+            f"{topic_kw} real archival footage",
             f"{topic_kw} satellite drone view 4k",
             f"{topic_kw} expedition history documentary",
-            f"{topic_kw} mystery investigation HD"
+            f"{topic_kw} mystery investigation 4k"
         ])
-
         
     unique_queries = []
     for q in queries:
@@ -214,59 +206,24 @@ def calculate_scene_durations(
     tail_overhead: float = 0.5
 ) -> List[float]:
     """
-    Calcula com precisão milimétrica a duração de cada corte de cena para que:
-    1. Cada tomada acompanhe exatamente o tempo em que a respectiva frase/fala é dita no áudio.
-    2. A soma total de todos os clipes cubra 100% da narração + um overhead/buffer de segurança
-       compacto no final (tail_overhead) para evitar cortes secos sem criar pausas mortas.
+    Calcula dinamicamente a duração ideal de cada cena no storyboard baseando-se no número de palavras
+    faladas da narração e no tempo real do áudio gerado pelo TTS.
+    Garante que a soma de todos os cortes cubra integralmente a narração + tail_overhead.
     """
     n_scenes = len(cenas)
     if n_scenes == 0:
         return []
     
-    # Caso 1: Mapeamento preciso por words_timing do Edge-TTS
-    if words_timing and len(words_timing) > 0:
-        scene_durations = []
-        word_idx = 0
-        total_words = len(words_timing)
-        curr_time = 0.0
-        
-        for sc_idx, cena in enumerate(cenas):
-            fala = cena.get("fala", "").strip()
-            sc_words = fala.split()
-            sc_word_count = len(sc_words) if sc_words else 1
-            
-            start_t = curr_time
-            end_idx = min(word_idx + sc_word_count - 1, total_words - 1)
-            speech_end_t = words_timing[end_idx].get("end", total_audio_duration)
-            
-            word_idx = end_idx + 1
-            
-            if sc_idx == n_scenes - 1:
-                dur = max(total_audio_duration - start_t, speech_end_t - start_t) + tail_overhead
-            else:
-                dur = max(1.8, speech_end_t - start_t)
-                
-            dur = round(dur, 2)
-            scene_durations.append(dur)
-            curr_time += dur
-        
-        # Garantia final de overhead total
-        if sum(scene_durations) < total_audio_duration + tail_overhead:
-            diff = (total_audio_duration + tail_overhead) - sum(scene_durations)
-            scene_durations[-1] = round(scene_durations[-1] + diff, 2)
-            
-        return scene_durations
-    
-    # Caso 2: Cálculo proporcional pelos pesos das palavras / texto de cada cena
-    weights = []
+    # Extrai o peso de texto (palavras) por cena
+    word_counts = []
     for c in cenas:
-        fala = c.get("fala", "").strip()
-        w = len(fala.split()) if fala else 1
-        weights.append(max(w, 1))
+        text = c.get("fala", "").strip()
+        count = len(text.split()) if text else 1
+        word_counts.append(max(1, count))
     
-    total_w = sum(weights)
+    total_w = sum(word_counts)
     durations = []
-    for sc_idx, w in enumerate(weights):
+    for sc_idx, w in enumerate(word_counts):
         base_dur = (w / total_w) * total_audio_duration
         if sc_idx == n_scenes - 1:
             base_dur += tail_overhead
@@ -281,7 +238,7 @@ def calculate_scene_durations(
 class BRollEngine:
     """
     Motor de busca, download, varredura multi-trecho e auditoria concorrente de B-Rolls.
-    Garante que 100% dos trechos utilizados sejam limpos (Zero Rostos) e renderizados em 1080x1920 HD
+    Garante que 100% dos trechos utilizados sejam limpos (Zero Rostos) e renderizados em 1080x1920
     com política estrita de Early-Discard para não desperdiçar tempo nem tokens em vídeos fora do tema.
     """
     def __init__(self, max_search_results: int = 6):
@@ -302,7 +259,7 @@ class BRollEngine:
     ) -> Tuple[bool, str, str, str, Dict[str, Any]]:
         """
         Pesquisa no YouTube, baixa candidatos e varre múltiplos trechos (timestamps) dentro de cada vídeo
-        para encontrar um segmento aprovado (Zero Rostos + alta pertinência) em 1080x1920 HD.
+        para encontrar um segmento aprovado (Zero Rostos + alta pertinência) em 1080x1920.
         Aplica Early-Discard para abortar imediatamente vídeos que não pertencem ao tema.
         """
         with LogSpan("BRollEngine.search_and_download_clip", extra={"query": query, "topic": global_topic, "duration": target_duration}):
@@ -362,7 +319,7 @@ class BRollEngine:
                             app_logger.info(f"[BRollEngine] Candidato '{vid_title}' descartado pelo pré-filtro: {pre_reason}")
                             continue
 
-                    safe_status(status_callback, f"📥 Baixando candidato HD: **{vid_title[:45]}...**")
+                    safe_status(status_callback, f"📥 Baixando candidato: **{vid_title[:45]}...**")
 
                     temp_raw_file = os.path.join(tempfile.gettempdir(), f"broll_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
                     temp_cut_clip = os.path.join(tempfile.gettempdir(), f"broll_cut_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
@@ -411,23 +368,23 @@ class BRollEngine:
                                     pass
                             continue
 
-
-
                         # 3. Varredura Multi-Trechos Inteligente com Limites Estritos de Duração
                         if actual_dur <= target_duration:
                             seek_offsets = [0.0]
-                            effective_cut_dur = max(1.0, actual_dur)
                         else:
                             max_seek = max(0.0, actual_dur - target_duration - 0.5)
-                            offsets_pct = [0.25, 0.60]
-                            seek_offsets = [min(max_seek, max(0.0, actual_dur * p)) for p in offsets_pct]
-                            seek_offsets = list(dict.fromkeys([round(s, 1) for s in seek_offsets if s <= max_seek]))
-                            if not seek_offsets:
-                                seek_offsets = [0.0]
-                            effective_cut_dur = target_duration
+                            # Seleciona até 5 timestamps distribuídos pelo vídeo para inspecionar
+                            seek_offsets = [
+                                min(max_seek, 3.0),
+                                min(max_seek, actual_dur * 0.25),
+                                min(max_seek, actual_dur * 0.50),
+                                min(max_seek, actual_dur * 0.75),
+                                min(max_seek, max(0.0, actual_dur - target_duration - 1.0))
+                            ]
+                            seek_offsets = sorted(list(set([round(s, 2) for s in seek_offsets if s <= max_seek])))
 
                         approved = False
-                        best_inspection = {}
+                        best_inspection = {"aprovado": False, "score": 0.0, "motivo": "Nenhum trecho auditado"}
 
                         for seek_t in seek_offsets:
                             if os.path.exists(temp_cut_clip):
@@ -436,9 +393,11 @@ class BRollEngine:
                                 except:
                                     pass
 
-                            cut_dur = min(effective_cut_dur, max(1.0, actual_dur - seek_t))
+                            cut_dur = min(target_duration, actual_dur - seek_t)
+                            if cut_dur < 1.5:
+                                continue
 
-                            # Recorte 9:16 HD (Lanczos + CRF 18) com garantia estrita de duração
+                            # Recorte 9:16 (Lanczos + CRF 18) com garantia estrita de duração
                             cmd = [
                                 self.ffmpeg_bin, "-y",
                                 "-ss", str(seek_t),
@@ -510,24 +469,9 @@ class BRollEngine:
                                     os.remove(output_clip_path)
                                 except:
                                     pass
-
-                            # Aplica tratamento de resolução HD, descompressão e nitidez
-                            if DEFAULT_VIDEO_ENHANCER:
-                                safe_status(status_callback, f"✨ Aplicando tratamento Full HD 1080x1920 e nitidez em *'{vid_title[:30]}'*...")
-                                ok_hd, _ = DEFAULT_VIDEO_ENHANCER.enhance_clip(temp_cut_clip, output_clip_path)
-                                if not ok_hd or not os.path.exists(output_clip_path):
-                                    os.rename(temp_cut_clip, output_clip_path)
-                                else:
-                                    try:
-                                        os.remove(temp_cut_clip)
-                                    except:
-                                        pass
-                            else:
-                                os.rename(temp_cut_clip, output_clip_path)
-
-                            app_logger.info(f"[BRollEngine] Trecho Full HD aprovado e gravado: {output_clip_path} (ID: {vid_id} - '{vid_title}')")
+                            os.rename(temp_cut_clip, output_clip_path)
+                            app_logger.info(f"[BRollEngine] Trecho aprovado e gravado: {output_clip_path} (ID: {vid_id} - '{vid_title}')")
                             return True, output_clip_path, vid_id, vid_title, best_inspection
-
                         else:
                             if os.path.exists(temp_cut_clip):
                                 try:
@@ -554,9 +498,9 @@ class BRollEngine:
                                 pass
                         continue
 
-            app_logger.warning(f"[BRollEngine] Nenhum clipe do YouTube aprovado para '{query}'. Ativando contingência de Card Visual HD...")
+            app_logger.warning(f"[BRollEngine] Nenhum clipe do YouTube aprovado para '{query}'. Ativando contingência de Card Visual...")
             if VisualEngine is not None:
-                safe_status(status_callback, "🎨 Gerando Card Visual Dossiê Confidencial (Contingência HD)...")
+                safe_status(status_callback, "🎨 Gerando Card Visual Dossiê Confidencial (Contingência)...")
                 try:
                     visual_engine = VisualEngine()
                     clean_query = query.replace("documentary", "").replace("footage", "").replace("4k", "").replace("real", "").strip()
@@ -582,7 +526,7 @@ class BRollEngine:
                             "aprovado": True,
                             "descartar_video_inteiro": False,
                             "score": 8.5,
-                            "motivo": "Card Visual Dossiê HD gerado com sucesso (Contingência Resiliente)",
+                            "motivo": "Card Visual Dossiê gerado com sucesso (Contingência Resiliente)",
                             "elementos": "Infográfico Investigativo 1080x1920"
                         }
                 except Exception as e_vis:
@@ -602,7 +546,7 @@ class BRollEngine:
         status_callback = None
     ) -> Dict[str, Any]:
         """
-        Busca, faz download e tratamento de resolução de um clipe específico de cena,
+        Busca e faz download de um clipe específico de cena,
         gerando também um preview_frame para auditoria visual pelo ReviewerAgent.
         """
         os.makedirs(output_dir, exist_ok=True)
@@ -652,7 +596,6 @@ class BRollEngine:
         }
 
     def process_all_scenes_parallel(
-
         self,
         cenas: List[Dict[str, Any]],
         global_topic: str,
