@@ -43,6 +43,8 @@ try:
     from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE, BGM_THEME_PROFILES
     from .sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
+    from .key_pool import DEFAULT_KEY_POOL
+
     from .video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
     from .logger import (
         app_logger,
@@ -161,6 +163,20 @@ with st.sidebar:
         value=True,
         help="Se todos os modelos baterem cota, aguarda com contagem regressiva na tela."
     )
+
+    if DEFAULT_KEY_POOL:
+        st.markdown("#### 🔑 Pool Prioritário de Chaves")
+        pool_summary = DEFAULT_KEY_POOL.get_pool_status_summary()
+        for k_info in pool_summary:
+            p_num = k_info["priority"]
+            masked = k_info["masked"]
+            st_text = k_info["status"]
+            if st_text == "OPERACIONAL":
+                st.markdown(f"🟢 **Chave #{p_num}**: `{masked}` — **Ativa**")
+            else:
+                rem_m = k_info["remaining_minutes"]
+                st.markdown(f"🔴 **Chave #{p_num}**: `{masked}` — **Cooldown 1h ({rem_m}m)**")
+
     
     st.markdown("---")
     st.markdown("### 🎙️ Voz e Prosódia Vocal")

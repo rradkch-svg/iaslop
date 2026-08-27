@@ -15,12 +15,19 @@ from google.genai.errors import APIError, ClientError, ServerError
 try:
     from .logger import app_logger, LogSpan, record_throttling
     from .algorithm_memory import DEFAULT_ALGORITHM_MEMORY
+    from .key_pool import DEFAULT_KEY_POOL, APIKeyPriorityPool
 except ImportError:
     from logger import app_logger, LogSpan, record_throttling
     try:
         from algorithm_memory import DEFAULT_ALGORITHM_MEMORY
     except ImportError:
         DEFAULT_ALGORITHM_MEMORY = None
+    try:
+        from key_pool import DEFAULT_KEY_POOL, APIKeyPriorityPool
+    except ImportError:
+        DEFAULT_KEY_POOL = None
+        APIKeyPriorityPool = None
+
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -261,13 +268,19 @@ def generate_with_resilience(
     last_err = None
 
     for k_idx, current_key in enumerate(keys_pool):
-        # Verifica se esta chave está em cooldown
+        # Verifica se esta chave está em cooldown (1 Hora)
         now = time.time()
-        cooldown_until = _KEY_COOLDOWNS.get(current_key, 0.0)
+        cooldown_until = 0.0
+        if DEFAULT_KEY_POOL:
+            state = DEFAULT_KEY_POOL._load_state()
+            cooldown_until = float(state.get("keys", {}).get(current_key, {}).get("cooldown_until_ts", 0.0))
+        else:
+            cooldown_until = _KEY_COOLDOWNS.get(current_key, 0.0)
+
         if cooldown_until > now and len(keys_pool) > 1:
             wait_s = int(cooldown_until - now)
             if status_callback:
-                status_callback(f"Chave #{k_idx+1} em cooldown ({wait_s}s restantes). Alternando para próxima chave do pool...")
+                status_callback(f"Chave #{k_idx+1} em cooldown de 1h ({wait_s//60} min restantes). Alternando para próxima chave...")
             continue
 
         limiter = get_rate_limiter_for_key(current_key)
@@ -280,7 +293,7 @@ def generate_with_resilience(
                 start_time = time.time()
                 try:
                     if status_callback:
-                        key_hint = f" [Chave #{k_idx+1}]" if len(keys_pool) > 1 else ""
+                        key_hint = f" [Chave #{k_idx+1} / Prioridade {k_idx+1}]" if len(keys_pool) > 1 else ""
                         status_callback(f"Conectando ao modelo **{current_model}**{key_hint}...")
 
                     config = types.GenerateContentConfig(
@@ -317,34 +330,65 @@ def generate_with_resilience(
                     err_str = str(e)
                     last_err = e
                     is_quota = ("429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower())
+                    is_auth_error = ("API_KEY_INVALID" in err_str or "API key not valid" in err_str)
                     
-                    if is_quota:
-                        sleep_s = extract_retry_seconds(err_str)
-                        record_throttling("API_GEMINI", "RATE_LIMIT_429", f"Quota 429 no modelo {current_model}", retry_after=sleep_s)
-                        _KEY_COOLDOWNS[current_key] = time.time() + sleep_s
+                    if is_quota or is_auth_error:
+                        cd_duration = 3600 # 1 Hora estrita de espera para a chave esgotada
+                        record_throttling("API_GEMINI", "RATE_LIMIT_429", f"Quota 429 na chave #{k_idx+1} ({current_model})", retry_after=cd_duration)
+                        if DEFAULT_KEY_POOL:
+                            DEFAULT_KEY_POOL.mark_key_cooldown(
+                                current_key,
+                                duration_seconds=cd_duration,
+                                reason=f"Quota 429 / Sem tokens no modelo {current_model}"
+                            )
+                        else:
+                            _KEY_COOLDOWNS[current_key] = time.time() + cd_duration
 
-                        
-                        # Se há outra chave no pool, rotaciona imediatamente
+                        # Se há outra chave no pool, rotaciona imediatamente para a próxima prioridade
                         if len(keys_pool) > 1 and k_idx < len(keys_pool) - 1:
                             if status_callback:
-                                status_callback(f"Cota atingida na chave #{k_idx+1} (429). Alternando imediatamente para próxima chave do pool...")
-                            break # Sai do loop deste modelo e vai para próxima chave
+                                status_callback(f"⚠️ Chave #{k_idx+1} sem tokens. Colocada em cooldown de 1 HORA (3600s). Alternando para Chave #{k_idx+2}...")
+                            break # Sai do loop deste modelo e vai para próxima chave de prioridade
                         
-                        if auto_cooldown:
-                            msg = f"⏳ Cota 429 atingida. Entrando em cooldown inteligente por {sleep_s}s..."
+                        if auto_cooldown and len(keys_pool) == 1:
+                            msg = f"⏳ Cota 429 atingida na chave única. Entrando em cooldown de 1h..."
                             app_logger.warning(f"[Agents] {msg} Detalhe: {err_str}")
                             if cooldown_callback:
-                                cooldown_callback(sleep_s, f"Limite de cota (429). Aguardando {sleep_s}s...")
+                                cooldown_callback(cd_duration, f"Limite de cota (429). Aguardando {cd_duration}s...")
                             elif status_callback:
                                 status_callback(msg)
-                            time.sleep(sleep_s)
+                            time.sleep(min(60, cd_duration))
                             retries_left -= 1
                             continue
                     
                     app_logger.warning(f"[Agents] Erro no modelo {current_model} (Chave #{k_idx+1}): {err_str}")
                     break
 
+    # Se todas as chaves do pool estiverem em cooldown/bloqueadas e auto_cooldown estiver ativo:
+    if auto_cooldown and DEFAULT_KEY_POOL and len(keys_pool) > 1:
+        app_logger.warning("[Agents] Todas as chaves do pool estão em cooldown de 1h. Watchdog aguardando 30 MINUTOS...")
+        available_key = DEFAULT_KEY_POOL.wait_if_all_keys_blocked(
+            cooldown_callback=cooldown_callback,
+            status_callback=status_callback
+        )
+        if available_key:
+            return generate_with_resilience(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                model_name=model_name,
+                fallback_models=fallback_models,
+                auto_fallback=auto_fallback,
+                auto_cooldown=False,
+                response_mime_type=response_mime_type,
+                cooldown_callback=cooldown_callback,
+                status_callback=status_callback,
+                timeout_seconds=timeout_seconds,
+                max_cooldown_retries=max_cooldown_retries,
+                api_key=api_key
+            )
+
     raise Exception(f"Falha em todos os modelos e chaves configuradas. Último erro: {str(last_err)}")
+
 
 
 POPULAR_INEXPLICABLE_ANGLES = [

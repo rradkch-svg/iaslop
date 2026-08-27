@@ -24,6 +24,15 @@ WATCHDOG_LOG_FILE = os.path.join(LOGS_DIR, "watchdog.log")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 
+try:
+    from .key_pool import DEFAULT_KEY_POOL
+except ImportError:
+    try:
+        from key_pool import DEFAULT_KEY_POOL
+    except ImportError:
+        DEFAULT_KEY_POOL = None
+
+
 # Logger específico do Watchdog
 watchdog_logger = logging.getLogger("watchdog")
 watchdog_logger.setLevel(logging.INFO)
@@ -230,8 +239,22 @@ def run_continuous_watchdog(poll_interval: int = 5):
                 break
 
         # Se chegamos aqui, nenhuma instância está rodando. Precisamos iniciar!
+        # Checa status do Pool de Chaves antes de disparar novo ciclo
+        if DEFAULT_KEY_POOL:
+            k, priority_idx, rem_s = DEFAULT_KEY_POOL.get_next_available_key()
+            if k is None and rem_s > 0:
+                wait_time = min(1800, max(5, int(rem_s)))
+                watchdog_logger.warning(
+                    f"⏳ [Watchdog] Todas as chaves da API Gemini estão em cooldown de 1h! "
+                    f"Aguardando {wait_time // 60} min ({wait_time}s) antes de reiniciar gerador..."
+                )
+                time.sleep(wait_time)
+                if not RUNNING:
+                    break
+
         total_restarts += 1
         watchdog_logger.info(f"▶️ [Watchdog] (Ciclo #{total_restarts}) Iniciando processo do gerador auto_pipeline.py...")
+
 
         start_time = time.time()
         pipeline_py = os.path.join(CURRENT_DIR, "auto_pipeline.py")
