@@ -415,7 +415,9 @@ class ProposerAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
+
         self.system_instruction = (
             "Você é o Diretor Criativo e Pesquisador de Inteligência do canal 'Minuto Inexplicável'. "
             "Sua missão é gerar ideias de altíssimo impacto para Shorts de 60 a 90 segundos sobre mistérios reais, projetos secretos desclassificados, bases subterrâneas, anomalias oceânicas/espaciais e enigmas históricos documentados.\n\n"
@@ -508,7 +510,9 @@ class DissertationAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
+
         self.system_instruction = (
             "Você é o Historiador de Inteligência e Pesquisador Científico Sênior do canal 'Minuto Inexplicável'.\n"
             "Sua missão é produzir uma DISSERTAÇÃO DOCUMENTAL E CIENTÍFICA COMPLETA (300 a 500 palavras) sobre o mistério/projeto/anomalia.\n\n"
@@ -579,7 +583,8 @@ class EvaluatorAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
         self.system_instruction = (
             "Você é o Diretor Editorial Chefe do canal 'Minuto Inexplicável'. "
             "Avalie o tema considerando o potencial de reter o público por 60 a 90 segundos, "
@@ -622,7 +627,9 @@ class SemanticAuditorAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
+
         self.system_instruction = (
             "Você é o Auditor Semântico de Ineditismo do canal 'Minuto Inexplicável'. "
             "Sua missão é impedir que vídeos abordem, EM ESSÊNCIA, o mesmo mistério, evento histórico, local, projeto militar/científico ou anomalia já gravado anteriormente no canal.\n"
@@ -789,7 +796,8 @@ class DirectorAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
         self.system_instruction = (
             "Você é o Diretor de Produção Audiovisual e Roteirista Investigativo de elite do canal 'Minuto Inexplicável'. "
             "Sua missão é destilar a pesquisa documental primária em um roteiro dinâmico e hipnótico de 60 a 90 segundos "
@@ -876,7 +884,8 @@ class ReviewerAgent:
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
         self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
-        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        raw_key = api_key or kwargs.get("api_key") or kwargs.get("key")
+        self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
         self.system_instruction = (
             "Você é o Revisor Chefe de Qualidade Visual e Imagens de Arquivo do canal 'Minuto Inexplicável'. "
             "Sua missão é auditar frames de filmagens baixadas do YouTube para garantir relevância ao mistério, base secreta ou fenômeno estudado.\n"
@@ -893,34 +902,58 @@ class ReviewerAgent:
         if not os.path.exists(image_path):
             return {"aprovado": False, "nota_relevancia": 0, "motivo": "Arquivo de imagem não encontrado."}
         
-        try:
-            img = Image.open(image_path)
-            prompt = (
-                f"Contexto do mistério/narração da cena: '{context_text}'.\n"
-                f"Avalie o frame anexado. Ele é relevante, de alta qualidade documental e livre de apresentadores/podcasters?"
-            )
-            
-            client = get_genai_client(api_key=self.api_key)
-            config = types.GenerateContentConfig(
-                system_instruction=self.system_instruction,
-                response_mime_type="application/json",
-                http_options=types.HttpOptions(timeout=45000)
-            )
-            
-            resp = client.models.generate_content(
-                model=self.model_name,
-                contents=[img, prompt],
-                config=config
-            )
-            
-            clean_res = resp.text.strip()
-            clean_res = re.sub(r"^```json\s*", "", clean_res, flags=re.IGNORECASE)
-            clean_res = re.sub(r"\s*```$", "", clean_res).strip()
-            return json.loads(clean_res)
-        except Exception as e:
-            app_logger.warning(f"[ReviewerAgent] Auditoria de visão indisponível ({str(e)}). Assumindo aprovação padrão.")
-            return {
-                "aprovado": True,
-                "nota_relevancia": 8.0,
-                "motivo": f"Aprovação por fallback (Erro de auditoria visual: {str(e)})"
-            }
+        keys_pool = resolve_gemini_api_keys(self.api_key)
+        if not keys_pool:
+            keys_pool = [""]
+
+        last_err = None
+        for k_idx, current_key in enumerate(keys_pool):
+            now = time.time()
+            cooldown_until = 0.0
+            if DEFAULT_KEY_POOL:
+                state = DEFAULT_KEY_POOL._load_state()
+                cooldown_until = float(state.get("keys", {}).get(current_key, {}).get("cooldown_until_ts", 0.0))
+            if cooldown_until > now and len(keys_pool) > 1:
+                continue
+
+            try:
+                img = Image.open(image_path)
+                prompt = (
+                    f"Contexto do mistério/narração da cena: '{context_text}'.\n"
+                    f"Avalie o frame anexado. Ele é relevante, de alta qualidade documental e livre de apresentadores/podcasters?"
+                )
+                
+                client = get_genai_client(api_key=current_key)
+                config = types.GenerateContentConfig(
+                    system_instruction=self.system_instruction,
+                    response_mime_type="application/json",
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                    http_options=types.HttpOptions(timeout=45000)
+                )
+                
+                resp = client.models.generate_content(
+                    model=self.model_name,
+                    contents=[img, prompt],
+                    config=config
+                )
+                
+                clean_res = resp.text.strip()
+                clean_res = re.sub(r"^```json\s*", "", clean_res, flags=re.IGNORECASE)
+                clean_res = re.sub(r"\s*```$", "", clean_res).strip()
+                return json.loads(clean_res)
+            except Exception as e:
+                err_str = str(e)
+                last_err = e
+                is_quota = ("429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower())
+                if is_quota and DEFAULT_KEY_POOL:
+                    DEFAULT_KEY_POOL.mark_key_cooldown(current_key, duration_seconds=3600, reason="Quota 429 no ReviewerAgent")
+                    continue
+                app_logger.warning(f"[ReviewerAgent] Erro na chave #{k_idx+1}: {err_str}")
+
+        app_logger.warning(f"[ReviewerAgent] Auditoria de visão indisponível ({str(last_err)}). Assumindo aprovação padrão.")
+        return {
+            "aprovado": True,
+            "nota_relevancia": 8.0,
+            "motivo": f"Aprovação por fallback (Erro de auditoria visual: {str(last_err)})"
+        }
+
