@@ -244,5 +244,75 @@ class PronunciationEngine:
 
         return result
 
+    def phoneticize(self, text: str) -> str:
+        """Alias para apply_pronunciation_to_text."""
+        return self.apply_pronunciation_to_text(text)
+
+    def align_phonetic_timing_to_original(
+        self,
+        original_text: str,
+        phonetic_words_timing: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Mapeia os timestamps de áudio (gerados pelo TTS com o texto fonético)
+        de volta para as palavras limpas e bem formatadas do texto original.
+        Garante que a legenda na tela exiba o termo correto enquanto a narração fala com pronúncia perfeita.
+        """
+        original_words = [w.strip() for w in original_text.split() if w.strip()]
+        if not original_words:
+            return phonetic_words_timing
+
+        if not phonetic_words_timing:
+            curr = 0.0
+            aligned = []
+            for w in original_words:
+                dur = max(len(w) * 0.045, 0.20)
+                aligned.append({
+                    "word": w,
+                    "start": round(curr, 3),
+                    "end": round(curr + dur, 3)
+                })
+                curr += dur
+            return aligned
+
+        if len(original_words) == len(phonetic_words_timing):
+            aligned = []
+            for orig_w, timing in zip(original_words, phonetic_words_timing):
+                aligned.append({
+                    "word": orig_w,
+                    "start": timing.get("start", 0.0),
+                    "end": timing.get("end", 0.0)
+                })
+            return aligned
+
+        total_audio_start = phonetic_words_timing[0].get("start", 0.0)
+        total_audio_end = phonetic_words_timing[-1].get("end", 1.0)
+        total_duration = max(0.1, total_audio_end - total_audio_start)
+
+        orig_weights = []
+        for w in original_words:
+            w_len = len(w)
+            if w.endswith((".", "!", "?", ",", ";", ":")):
+                w_len += 2
+            orig_weights.append(max(w_len, 1))
+
+        total_weight = sum(orig_weights)
+        aligned = []
+        curr_t = total_audio_start
+
+        for w, weight in zip(original_words, orig_weights):
+            dur = (weight / total_weight) * total_duration
+            w_start = curr_t
+            w_end = min(curr_t + dur, total_audio_end)
+            aligned.append({
+                "word": w,
+                "start": round(w_start, 3),
+                "end": round(w_end, 3)
+            })
+            curr_t = w_end
+
+        return aligned
+
 # Instância padrão global para reutilização
 DEFAULT_PRONUNCIATION_ENGINE = PronunciationEngine()
+

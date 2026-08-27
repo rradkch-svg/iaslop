@@ -134,13 +134,16 @@ class AudioEngine:
         with open(output_mp3, "wb") as f:
             f.write(raw_audio)
 
-        # Mapeia as palavras do texto original limpo para os tempos capturados
-        orig_words = clean_text.split()
-        if word_boundaries and len(word_boundaries) == len(orig_words):
-            # 1-to-1 mapping direto se contagem for idêntica
-            for idx, ow in enumerate(orig_words):
-                word_boundaries[idx]["word"] = ow.strip()
-            return word_boundaries
+        # Mapeia as palavras do texto original limpo para os tempos capturados via alinhamento fonético
+        if word_boundaries:
+            if self.pronunciation_engine and hasattr(self.pronunciation_engine, "align_phonetic_timing_to_original"):
+                return self.pronunciation_engine.align_phonetic_timing_to_original(clean_text, word_boundaries)
+            orig_words = clean_text.split()
+            if len(word_boundaries) == len(orig_words):
+                for idx, ow in enumerate(orig_words):
+                    word_boundaries[idx]["word"] = ow.strip()
+                return word_boundaries
+
 
         if sentence_boundaries:
             words_timing = []
