@@ -49,6 +49,7 @@ try:
     from .broll_engine import BRollEngine, find_ffmpeg_binary
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
+    from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
 except ImportError:
     from logger import app_logger, LogSpan, record_throttling
     from checkpoint_manager import CheckpointManager, VIDEOS_PER_BATCH
@@ -71,6 +72,8 @@ except ImportError:
     from broll_engine import BRollEngine, find_ffmpeg_binary
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
+    from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
+
 
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
 RUNNING = True
@@ -113,7 +116,9 @@ class AutoPipelineRunner:
         auto_fallback: bool = True,
         auto_cooldown: bool = True,
         videos_per_batch: int = VIDEOS_PER_BATCH,
-        fast_mode: bool = False
+        fast_mode: bool = False,
+        enable_bgm: bool = True,
+        bgm_volume: float = 0.12
     ):
         self.checkpoint_mgr = CheckpointManager(root_dir=checkpoint_dir, videos_per_batch=videos_per_batch)
         self.voice = voice
@@ -125,14 +130,17 @@ class AutoPipelineRunner:
         self.auto_cooldown = auto_cooldown
         self.videos_per_batch = videos_per_batch
         self.fast_mode = fast_mode
+        self.enable_bgm = enable_bgm
+        self.bgm_volume = bgm_volume
 
         # Garante a chave do Gemini
         api_key = resolve_gemini_api_key()
         if api_key:
             os.environ["GEMINI_API_KEY"] = api_key
 
-        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x e pronúncia
+        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x, pronúncia e BGM
         self.pronunciation_engine = DEFAULT_PRONUNCIATION_ENGINE
+        self.bgm_engine = DEFAULT_BGM_ENGINE or BGMEngine()
         self.audio_engine = AudioEngine(
             voice=self.voice,
             rate=self.rate,
@@ -140,6 +148,7 @@ class AutoPipelineRunner:
             volume=self.volume,
             pronunciation_engine=self.pronunciation_engine
         )
+
         self.broll_engine = BRollEngine(max_search_results=6)
         self.reviewer_agent = ReviewerAgent(
             model_name=self.model_name,
@@ -462,13 +471,21 @@ class AutoPipelineRunner:
                         })
 
                 try:
+                    bgm_track = self.bgm_engine.get_bgm_for_topic(
+                        topic_title=ckpt.get("topic", {}).get("tema", ""),
+                        topic_context=ckpt.get("topic", {}).get("hook", "")
+                    ) if self.enable_bgm else None
+
                     success_render = assemble_multi_scene_video(
                         media_scenes=media_list,
                         audio_path=audio_path,
                         subtitles_path=ass_path if os.path.exists(ass_path) else None,
                         output_path=final_video_path,
+                        bgm_path=bgm_track,
+                        bgm_volume=self.bgm_volume,
                         topic_context=ckpt.get("topic", {})
                     )
+
                     
                     if not success_render or not os.path.exists(final_video_path):
                         raise Exception("Falha no FFmpeg ao montar o vídeo final.")

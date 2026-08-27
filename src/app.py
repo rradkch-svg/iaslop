@@ -41,6 +41,7 @@ try:
     from .checkpoint_manager import CheckpointManager
     from .pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
+    from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE, BGM_THEME_PROFILES
     from .logger import (
         app_logger,
         get_recent_ui_logs,
@@ -70,6 +71,7 @@ except ImportError:
     from checkpoint_manager import CheckpointManager
     from pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
+    from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE, BGM_THEME_PROFILES
     from logger import (
         app_logger,
         get_recent_ui_logs,
@@ -177,6 +179,11 @@ with st.sidebar:
     pitch_choice = selected_preset['pitch']
     volume_choice = selected_preset['volume']
 
+    st.markdown("---")
+    st.markdown("### 🎵 Música de Fundo (BGM Suspense)")
+    enable_bgm_ui = st.checkbox("🔊 Ativar Trilha Sonora de Suspense", value=True, help="Adiciona música de fundo dark ambient com ducking de volume.")
+    bgm_volume_ui = st.slider("🎚️ Volume da Música (Ducking):", min_value=0.02, max_value=0.30, value=0.12, step=0.01, format="%.2f", help="Volume reduzido para que a voz neural permaneça clara e dominante.")
+
 # Header Principal
 st.markdown('<div class="main-header">🔮 MINUTO INEXPLICÁVEL STUDIO</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Fábrica Autônoma Multi-Agente de Vídeos Curtos (9:16 Vertical) para Shorts/Reels/TikTok</div>', unsafe_allow_html=True)
@@ -197,9 +204,10 @@ def render_throttling_alerts_ui():
                 )
 
 # Tabs Principais
-tab_prod, tab_batches, tab_memory, tab_phonetics, tab_diag = st.tabs([
+tab_prod, tab_batches, tab_bgm, tab_memory, tab_phonetics, tab_diag = st.tabs([
     "🎬 Estúdio de Produção",
     "📦 Batches & Checkpoints",
+    "🎵 Trilha Sonora (BGM)",
     "📈 Memória Algorítmica & Métricas",
     "🗣️ Dicionário Fonético",
     "📊 Central de Logs & Diagnóstico"
@@ -350,6 +358,41 @@ with tab_batches:
         st.dataframe(bl_items[-30:], use_container_width=True)
     else:
         st.info("Blacklist vazia.")
+
+with tab_bgm:
+    st.markdown("### 🎵 Soundbank de Suspense & Música de Fundo (BGM)")
+    st.markdown(
+        "Trilhas sonoras de **Dark Ambient, Drones Investigativos e Tensão Cinematográfica** "
+        "sem direitos autorais (Royalty-Free / Zero Copyright), mixadas com **ducking de volume** automático para manter a clareza da voz."
+    )
+
+    bgm_eng = DEFAULT_BGM_ENGINE or BGMEngine()
+    tracks = bgm_eng.list_available_tracks()
+    
+    st.markdown(f"**Trilhas Disponíveis no Banco Local:** `{len(tracks)} faixas`")
+    
+    for t_info in tracks:
+        with st.container():
+            fn = t_info["filename"]
+            fp = t_info["path"]
+            col_b1, col_b2 = st.columns([2, 3])
+            with col_b1:
+                st.markdown(f"🎧 **{fn}** ({t_info['size_kb']} KB)")
+            with col_b2:
+                if os.path.exists(fp):
+                    st.audio(fp)
+        st.markdown("---")
+
+    with st.expander("🌐 Baixar Nova Trilha de Suspense Sem Copyright (YouTube Audio Library)"):
+        with st.form("form_download_bgm"):
+            query_bgm = st.text_input("Termo de Busca Royalty-Free:", value="dark ambient suspense investigation background music no copyright")
+            btn_dl_bgm = st.form_submit_button("🔍 Baixar e Adicionar ao Banco")
+            if btn_dl_bgm and query_bgm:
+                with st.spinner("Baixando e convertendo trilha sem copyright..."):
+                    res = bgm_eng.fetch_online_royalty_free_bgm(query_bgm)
+                    if res:
+                        st.success(f"Trilha adicionada com sucesso: `{os.path.basename(res)}`")
+                        st.rerun()
 
 with tab_memory:
     st.markdown("### 📈 Inteligência Algorítmica e Sincronização de Métricas")
