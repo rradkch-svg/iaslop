@@ -569,7 +569,15 @@ class CheckpointManager:
         # Fallback
         return current_batch_idx, 0, f"batch_{current_batch_idx}", "video_0"
 
+    def get_next_pending_target(self) -> Tuple[int, int]:
+        """
+        Retorna uma tupla (batch_index, video_index) do próximo vídeo pendente de produção.
+        """
+        b_idx, v_idx, _, _ = self.get_next_work_target()
+        return b_idx, v_idx
+
     def mark_video_completed(self, batch_index: int, video_index: int, final_video_path: str):
+
         """Marca o vídeo como COMPLETED e atualiza estado global e batch."""
         ckpt = self.load_video_checkpoint(batch_index, video_index)
         ckpt["status"] = "COMPLETED"
