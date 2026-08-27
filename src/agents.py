@@ -451,20 +451,26 @@ class ProposerAgent:
         blacklist_str = ""
         if blacklist:
             formatted_items = []
-            for b in blacklist[-60:]:
+            for b in blacklist[-80:]:
                 if isinstance(b, dict):
                     t = b.get("tema") or b.get("core_entity") or str(b)
+                    ent = b.get("core_entity", "")
+                    if ent and ent != t:
+                        formatted_items.append(f"- {t} [Assunto/Local Central: {ent}]")
+                    else:
+                        formatted_items.append(f"- {t}")
                 else:
                     t = str(b).strip()
-                if t:
-                    formatted_items.append(f"- {t}")
+                    if t:
+                        formatted_items.append(f"- {t}")
             if formatted_items:
                 blacklist_str = (
-                    f"\n\n[BLACKLIST DE MISTÉRIOS JÁ GRAVADOS - ESTRITAMENTE PROIBIDO REPETIR]:\n"
+                    f"\n\n[BLACKLIST DE MISTÉRIOS JÁ GRAVADOS - ESTRITAMENTE PROIBIDO REPETIR EM ESSÊNCIA]:\n"
                     f"{chr(10).join(formatted_items)}\n"
-                    f"ATENÇÃO MÁXIMA: É TERMINANTEMENTE PROIBIDO repetir qualquer um dos mistérios, locais ou eventos listados na Blacklist acima. "
-                    f"Gere temas 100% INÉDITOS com outros segredos, projetos desclassificados e anomalias."
+                    f"ATENÇÃO MÁXIMA: É TERMINANTEMENTE PROIBIDO repetir qualquer um dos mistérios, locais, projetos ou anomalias listados na Blacklist acima, MESMO alterando o título ou o ângulo da narração. "
+                    f"Gere temas 100% INÉDITOS sobre outros segredos e mistérios reais do planeta e do espaço."
                 )
+
 
         prompt = (
             f"Gere {count} ideias COMPLETAS e INÉDITAS sobre mistérios reais do mundo para o canal 'Minuto Inexplicável' (vídeos de 60 a 90 segundos).\n\n"
@@ -542,6 +548,98 @@ class EvaluatorAgent:
                 "veredicto": "Aprovado",
                 "justificativa": "Tema com forte apelo documental e alto fator de curiosidade investigativa."
             }
+
+class SemanticAuditorAgent:
+    """
+    Auditor Semântico de Ineditismo e Anti-Duplicação.
+    Verifica se um novo candidato trata, em essência, do mesmo mistério, local, evento ou projeto histórico
+    já presente na Blacklist, mesmo quando os títulos usam palavras e estruturas completamente distintas.
+    """
+    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+        self.model_name = model_name
+        self.auto_fallback = auto_fallback
+        self.auto_cooldown = auto_cooldown
+        self.fallback_models = fallback_models or DEFAULT_FALLBACK_MODELS
+        self.api_key = (api_key or kwargs.get("api_key") or kwargs.get("key") or os.environ.get("GEMINI_API_KEY", "")).strip()
+        self.system_instruction = (
+            "Você é o Auditor Semântico de Ineditismo do canal 'Minuto Inexplicável'. "
+            "Sua missão é impedir que vídeos abordem, EM ESSÊNCIA, o mesmo mistério, evento histórico, local, projeto militar/científico ou anomalia já gravado anteriormente no canal.\n"
+            "Ignore variações cosméticas no título: se o fato histórico/científico subjacente for o mesmo (ex: 'O Poço de Kola' e 'O Buraco Russo de 12km', ou 'Incidente Dyatlov' e 'Alpinistas Mortos nos Urais em 1959'), trata-se de UMA DUPLICATA.\n"
+            "Responda SEMPRE em formato JSON com exatamente:\n"
+            "- 'is_duplicate': true se o tema candidato for o mesmo evento/local/mistério em essência; false se for genuinamente inédito\n"
+            "- 'matched_topic': Título do tema da Blacklist correspondente (ou null se for inédito)\n"
+            "- 'reason': Explicação concisa e objetiva da decisão."
+        )
+
+    def check_duplicate_essence(
+        self,
+        candidate_topic: Dict[str, Any],
+        blacklist_items: List[Dict[str, Any]],
+        cooldown_callback=None,
+        status_callback=None
+    ) -> Tuple[bool, str]:
+        """
+        Consulta a IA para determinar se o candidato aborda o mesmo mistério que algum item da blacklist.
+        Retorna (is_duplicate: bool, reason: str).
+        """
+        if not blacklist_items:
+            return False, "Blacklist vazia."
+
+        cand_title = candidate_topic.get("tema", "")
+        cand_hook = candidate_topic.get("hook", "")
+        cand_tech = candidate_topic.get("explicacao_tecnica", "")
+
+        formatted_list = []
+        for i, item in enumerate(blacklist_items[-40:]):
+            t = item.get("tema", "")
+            ent = item.get("core_entity", "")
+            hk = item.get("hook", "")
+            if t:
+                desc = f"{i+1}. TÍTULO: '{t}'"
+                if ent and ent != t:
+                    desc += f" (Assunto: {ent})"
+                if hk:
+                    desc += f" - Hook: {hk[:70]}"
+                formatted_list.append(desc)
+
+        blacklist_text = "\n".join(formatted_list)
+
+        prompt = (
+            f"Analise se o TEMA CANDIDATO abaixo aborda, EM ESSÊNCIA, o mesmo mistério/local/projeto de algum dos temas já gravados na Blacklist.\n\n"
+            f"[TEMA CANDIDATO]:\n"
+            f"- Título: {cand_title}\n"
+            f"- Hook: {cand_hook}\n"
+            f"- Contexto Factual: {cand_tech}\n\n"
+            f"[TEMAS RECENTES DA BLACKLIST]:\n"
+            f"{blacklist_text}\n\n"
+            f"Responda SEMPRE em JSON: {{\"is_duplicate\": bool, \"matched_topic\": \"... ou null\", \"reason\": \"...\"}}"
+        )
+
+        try:
+            raw_text = generate_with_resilience(
+                prompt=prompt,
+                system_instruction=self.system_instruction,
+                model_name=self.model_name,
+                fallback_models=self.fallback_models,
+                auto_fallback=self.auto_fallback,
+                auto_cooldown=self.auto_cooldown,
+                response_mime_type="application/json",
+                cooldown_callback=cooldown_callback,
+                status_callback=status_callback,
+                api_key=self.api_key
+            )
+            parsed = json.loads(raw_text)
+            is_dup = bool(parsed.get("is_duplicate", False))
+            matched = parsed.get("matched_topic")
+            reason = parsed.get("reason", "")
+            if is_dup:
+                full_reason = f"Duplicata de '{matched}': {reason}" if matched else f"Duplicata em essência: {reason}"
+                return True, full_reason
+            return False, "Tema inédito confirmado pela IA."
+        except Exception as e:
+            app_logger.warning(f"[SemanticAuditorAgent] Auditoria por IA indisponível ({str(e)}). Mantendo análise determinística.")
+            return False, f"Auditoria por IA ignorada: {str(e)}"
+
 
 def extract_core_entity(topic_str: str) -> str:
     """Extrai os termos centrais do mistério/local/projeto de estudo (ex: Camp Century, Kola Borehole, Dyatlov Pass)."""

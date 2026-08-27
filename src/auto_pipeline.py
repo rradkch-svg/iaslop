@@ -34,6 +34,7 @@ try:
         EvaluatorAgent,
         DirectorAgent,
         ReviewerAgent,
+        SemanticAuditorAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
         validate_gemini_api_connection,
@@ -51,6 +52,7 @@ except ImportError:
         EvaluatorAgent,
         DirectorAgent,
         ReviewerAgent,
+        SemanticAuditorAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
         validate_gemini_api_connection,
@@ -60,6 +62,7 @@ except ImportError:
     from broll_engine import BRollEngine, find_ffmpeg_binary
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
+
 
 
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
@@ -176,6 +179,12 @@ class AutoPipelineRunner:
             auto_fallback=self.auto_fallback,
             auto_cooldown=self.auto_cooldown
         )
+        self.semantic_auditor = SemanticAuditorAgent(
+            model_name=self.model_name,
+            auto_fallback=self.auto_fallback,
+            auto_cooldown=self.auto_cooldown
+        )
+
 
     def print_banner(self):
         print("=" * 75)
@@ -258,12 +267,17 @@ class AutoPipelineRunner:
                         if isinstance(proposed_topics, list) and proposed_topics:
                             for candidate in proposed_topics:
                                 t_name = candidate.get("tema", "")
-                                is_blk, blk_reason = self.checkpoint_mgr.is_in_blacklist(t_name)
+                                is_blk, blk_reason = self.checkpoint_mgr.is_in_blacklist(
+                                    candidate,
+                                    threshold=0.60,
+                                    ai_auditor=self.semantic_auditor
+                                )
                                 if not is_blk:
                                     selected_topic = candidate
                                     break
                                 else:
-                                    print(f"    ⚠️ Tema descartado pela Blacklist: '{t_name}' ({blk_reason})")
+                                    print(f"    ⚠️ Tema descartado pela Blacklist (Essência Repetida): '{t_name}' ({blk_reason})")
+
                             
                             if selected_topic:
                                 break

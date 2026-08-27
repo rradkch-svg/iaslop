@@ -4,7 +4,7 @@ import json
 import time
 import shutil
 import difflib
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union, Set, Callable
 
 try:
     from .logger import app_logger, LogSpan
@@ -14,6 +14,19 @@ except ImportError:
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CHECKPOINT_ROOT = os.environ.get("CHECKPOINT_DIR") or os.path.join(PROJECT_ROOT, "checkpoint")
 VIDEOS_PER_BATCH = 10
+
+KNOWN_MYSTERY_ANCHORS = {
+    "dyatlov", "kola", "derinkuyu", "marianas", "challenger", "bloop", "century",
+    "duga", "wow", "tunguska", "voynich", "mkultra", "gobekli", "tepe", "nazca",
+    "yonaguni", "roanoke", "flannan", "bouvet", "sargaco", "sargasso", "antarctica",
+    "antartida", "groenlandia", "urss", "soviético", "catatumbo", "marfa", "hessdalen",
+    "habbakuk", "montauk", "filadelfia", "nan madol", "anticitera", "antikythera",
+    "bagda", "baghdad", "mary celeste", "kic 8462852", "oumuamua", "proxima centauri",
+    "movile", "bermudas", "cicada 3301", "shugborough", "taos", "hum", "varginha",
+    "colares", "skinwalker", "rendlesham", "area 51", "dulce", "cheyenne", "diefenbunker",
+    "weather", "balaklava", "riese", "erebus", "terror", "wilkes", "mirny"
+}
+
 
 class CheckpointManager:
     """
@@ -79,54 +92,184 @@ class CheckpointManager:
                 titles.append(t)
         return titles
 
-    def is_in_blacklist(self, candidate_topic: str, threshold: float = 0.72) -> Tuple[bool, str]:
+    def _extract_semantic_fingerprint(self, item: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Verifica se um tema proposto é idêntico ou semanticamente muito próximo
-        a um tema já gravado na blacklist.
+        Extrai a impressão digital semântica profunda de um tema ou candidato.
+        Analisa título, hook, explicação técnica, tags e termos-chave.
         """
-        if not candidate_topic or not candidate_topic.strip():
+        if isinstance(item, dict):
+            tema = item.get("tema", "")
+            hook = item.get("hook", "")
+            tech = item.get("explicacao_tecnica", "")
+            tags = item.get("tags", [])
+            raw_entity = item.get("core_entity", "")
+        else:
+            tema = str(item)
+            hook = ""
+            tech = ""
+            tags = []
+            raw_entity = ""
+
+        clean_title = self._normalize_topic_string(tema)
+        core_entity = (raw_entity or self._extract_core_entity(tema)).strip()
+        clean_entity = self._normalize_topic_string(core_entity)
+
+        # Concatenação de todo o contexto semântico disponível
+        tags_text = " ".join(tags) if isinstance(tags, list) else str(tags)
+        full_text = f"{tema} {hook} {tech} {tags_text}".lower()
+        clean_full = self._normalize_topic_string(full_text)
+
+        # Tokens únicos sem stopwords
+        keywords = set(clean_full.split())
+        title_tokens = set(clean_title.split())
+        entity_tokens = set(clean_entity.split())
+
+        # Marcadores numéricos e anos específicos (ex: 1959, 1977, 1908, 12262, 12km, 18, 150)
+        numeric_markers = set(re.findall(r"\b\d+(?:[km|m|mil|graus|minutos|segundos|anos])?\b", full_text))
+
+        # Detecção de âncoras históricas / locais conhecidos
+        detected_anchors = set()
+        for anchor in KNOWN_MYSTERY_ANCHORS:
+            if anchor in clean_full or anchor in clean_title:
+                detected_anchors.add(anchor)
+
+        return {
+            "tema": tema,
+            "hook": hook,
+            "tech": tech,
+            "clean_title": clean_title,
+            "core_entity": core_entity,
+            "clean_entity": clean_entity,
+            "title_tokens": title_tokens,
+            "entity_tokens": entity_tokens,
+            "keywords": keywords,
+            "numeric_markers": numeric_markers,
+            "detected_anchors": detected_anchors,
+            "full_text": clean_full
+        }
+
+    def _compute_semantic_similarity(self, cand_fp: Dict[str, Any], exist_fp: Dict[str, Any]) -> Tuple[float, str]:
+        """
+        Calcula o grau de sobreposição semântica em essência entre dois temas.
+        Retorna (score: float entre 0.0 e 1.0, reason: str).
+        """
+        # 1. Correspondência exata de título normalizado
+        if cand_fp["clean_title"] and cand_fp["clean_title"] == exist_fp["clean_title"]:
+            return 1.0, f"Título idêntico a '{exist_fp['tema']}'"
+
+        # 2. Correspondência exata ou embutida de entidade principal
+        cand_ent = cand_fp["clean_entity"]
+        exist_ent = exist_fp["clean_entity"]
+        if cand_ent and exist_ent:
+            if cand_ent == exist_ent:
+                return 0.95, f"Mesma entidade principal ('{exist_fp['core_entity']}') em '{exist_fp['tema']}'"
+            if len(cand_ent) >= 4 and len(exist_ent) >= 4:
+                if cand_ent in exist_ent or exist_ent in cand_ent:
+                    return 0.90, f"Entidade central coincidente ('{exist_fp['core_entity']}') em '{exist_fp['tema']}'"
+
+        # 3. Sobreposição de Âncoras Históricas/Locais do Mistério
+        common_anchors = cand_fp["detected_anchors"].intersection(exist_fp["detected_anchors"])
+        if common_anchors:
+            anchor_name = list(common_anchors)[0]
+            # Se compartilha a mesma âncora de mistério, verifica sobreposição de palavras-chave
+            kw_overlap = cand_fp["keywords"].intersection(exist_fp["keywords"])
+            if len(kw_overlap) >= 2 or len(cand_fp["title_tokens"].intersection(exist_fp["title_tokens"])) >= 1:
+                return 0.90, f"Mesmo mistério/local âncora ('{anchor_name.upper()}') abordado em '{exist_fp['tema']}'"
+
+        # 4. Sobreposição de tokens da entidade
+        if cand_fp["entity_tokens"] and exist_fp["entity_tokens"]:
+            ent_overlap = cand_fp["entity_tokens"].intersection(exist_fp["entity_tokens"])
+            if len(ent_overlap) >= 2:
+                overlap_words = " ".join(ent_overlap)
+                return 0.85, f"Sobreposição de termos centrais da entidade ('{overlap_words}') com '{exist_fp['tema']}'"
+
+        # 5. Marcadores numéricos e anos únicos (ex: 1959, 1977, 12km) com contexto
+        num_overlap = cand_fp["numeric_markers"].intersection(exist_fp["numeric_markers"])
+        specific_nums = {n for n in num_overlap if len(n) >= 3 or n in {"18", "12", "10", "72", "10hz"}}
+        if specific_nums:
+            kw_overlap = cand_fp["keywords"].intersection(exist_fp["keywords"])
+            if len(kw_overlap) >= 3:
+                num_str = list(specific_nums)[0]
+                return 0.82, f"Mesmos dados históricos/quantitativos ('{num_str}') e termos em '{exist_fp['tema']}'"
+
+        # 6. Índice de Jaccard no vocabulário semântico total (título + hook + explicação)
+        union_kw = cand_fp["keywords"].union(exist_fp["keywords"])
+        if union_kw:
+            intersection_kw = cand_fp["keywords"].intersection(exist_fp["keywords"])
+            jaccard = len(intersection_kw) / len(union_kw)
+            if jaccard >= 0.40 or len(intersection_kw) >= 5:
+                top_words = list(intersection_kw)[:4]
+                return min(0.95, 0.50 + jaccard), f"Alta sobreposição de contexto ({len(intersection_kw)} termos em comum: {top_words}) com '{exist_fp['tema']}'"
+
+        # 7. Similaridade difflib / Levenshtein de título e entidade
+        seq_title = difflib.SequenceMatcher(None, cand_fp["clean_title"], exist_fp["clean_title"]).ratio()
+        if seq_title >= 0.65:
+            return seq_title, f"Similaridade textual alta ({seq_title:.0%}) com '{exist_fp['tema']}'"
+
+        return 0.0, ""
+
+    def is_in_blacklist(
+        self,
+        candidate_topic: Union[str, Dict[str, Any]],
+        threshold: float = 0.60,
+        ai_auditor: Optional[Any] = None
+    ) -> Tuple[bool, str]:
+        """
+        Verifica se um tema proposto é idêntico ou semanticamente equivalente em essência
+        a um tema já gravado na blacklist, utilizando análise multi-camada (entidades,
+        âncoras, n-grams, contexto factual e auditoria por IA).
+        """
+        if not candidate_topic:
             return False, ""
 
-        clean_cand = self._normalize_topic_string(candidate_topic)
+        cand_fp = self._extract_semantic_fingerprint(candidate_topic)
+        if not cand_fp["clean_title"] and not cand_fp["keywords"]:
+            return False, ""
+
         items = self.load_blacklist()
+        if not items:
+            return False, ""
+
+        highest_sim = 0.0
+        best_reason = ""
+        suspicious_matches = []
 
         for it in items:
-            existing_t = it.get("tema", "")
-            existing_entity = it.get("core_entity", "")
-            clean_exist = self._normalize_topic_string(existing_t)
-            clean_exist_ent = self._normalize_topic_string(existing_entity)
+            exist_fp = self._extract_semantic_fingerprint(it)
+            sim, reason = self._compute_semantic_similarity(cand_fp, exist_fp)
+            if sim > highest_sim:
+                highest_sim = sim
+                best_reason = reason
+            if sim >= 0.40:
+                suspicious_matches.append(it)
 
-            # 1. Correspondência exata de string normalizada
-            if clean_cand == clean_exist or (clean_exist_ent and clean_cand == clean_exist_ent):
-                return True, f"Idêntico ao tema já gravado: '{existing_t}'"
+        # 1. Bloqueio determinístico local por alta similaridade de essência
+        if highest_sim >= threshold:
+            return True, f"Repetição temática em essência ({highest_sim:.0%}): {best_reason}"
 
-            # 2. Correspondência direta de veículo/modelo principal
-            if clean_exist_ent and len(clean_exist_ent) > 4 and clean_exist_ent in clean_cand:
-                # Se contém o mesmo veículo principal, checa sobreposição de palavras-chave do tema
-                words_cand = set(clean_cand.split())
-                words_exist = set(clean_exist.split())
-                overlap = words_cand.intersection(words_exist)
-                if len(overlap) >= 3:
-                    return True, f"Veículo e ângulo mecânico muito similares a '{existing_t}'"
-
-            # 3. Similaridade difflib / Levenshtein
-            sim_ratio = difflib.SequenceMatcher(None, clean_cand, clean_exist).ratio()
-            if sim_ratio >= threshold:
-                return True, f"Similaridade alta ({sim_ratio:.0%}) com '{existing_t}'"
+        # 2. Arbitragem por IA para casos suspeitos/fronteiriços
+        if suspicious_matches and ai_auditor is not None and hasattr(ai_auditor, "check_duplicate_essence"):
+            candidate_dict = candidate_topic if isinstance(candidate_topic, dict) else {"tema": str(candidate_topic)}
+            is_dup, ai_reason = ai_auditor.check_duplicate_essence(
+                candidate_topic=candidate_dict,
+                blacklist_items=suspicious_matches[:15]
+            )
+            if is_dup:
+                return True, f"Auditor de IA identificou repetição de essência: {ai_reason}"
 
         return False, ""
 
     def add_to_blacklist(self, topic_data: Dict[str, Any], batch_name: str, video_name: str) -> bool:
         """
         Registra imediatamente um tema na Blacklist para garantir que nunca mais se repita.
-        Grava tanto em JSON estruturado quanto em TXT legível.
+        Grava o perfil semântico completo tanto em JSON estruturado quanto em TXT legível.
         """
         tema_title = topic_data.get("tema", "").strip()
         if not tema_title:
             return False
 
-        # Extrai entidade mecânica
         core_entity = self._extract_core_entity(tema_title)
+        fp = self._extract_semantic_fingerprint(topic_data)
 
         items = self.load_blacklist()
         
@@ -139,6 +282,9 @@ class CheckpointManager:
             "tema": tema_title,
             "core_entity": core_entity,
             "hook": topic_data.get("hook", ""),
+            "explicacao_tecnica": topic_data.get("explicacao_tecnica", ""),
+            "tags": topic_data.get("tags", []),
+            "keywords": sorted(list(fp["keywords"]))[:25],
             "batch": batch_name,
             "video": video_name,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -146,7 +292,7 @@ class CheckpointManager:
         items.append(new_entry)
 
         payload = {
-            "version": 1,
+            "version": 2,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "total_items": len(items),
@@ -162,8 +308,9 @@ class CheckpointManager:
         except Exception as e:
             app_logger.warning(f"[CheckpointManager] Erro ao gravar blacklist.txt: {str(e)}")
 
-        app_logger.info(f"[CheckpointManager] Blacklist atualizada com: '{tema_title}' ({batch_name}/{video_name})")
+        app_logger.info(f"[CheckpointManager] Blacklist atualizada com perfil semântico: '{tema_title}' ({batch_name}/{video_name})")
         return True
+
 
     # =========================================================================
     # 2. GESTÃO DE ESTADO GLOBAL E RECUPERAÇÃO DE BATCHES
