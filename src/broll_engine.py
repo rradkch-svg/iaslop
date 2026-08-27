@@ -17,11 +17,15 @@ except ImportError:
 
 try:
     from .visual_engine import VisualEngine
+    from .video_enhancer import DEFAULT_VIDEO_ENHANCER
 except ImportError:
     try:
         from visual_engine import VisualEngine
+        from video_enhancer import DEFAULT_VIDEO_ENHANCER
     except ImportError:
         VisualEngine = None
+        DEFAULT_VIDEO_ENHANCER = None
+
 
 def find_deno_binary() -> Optional[str]:
     """Localiza o interpretador JavaScript Deno para resolver desafios de n-sig do YouTube."""
@@ -500,9 +504,24 @@ class BRollEngine:
                                     os.remove(output_clip_path)
                                 except:
                                     pass
-                            os.rename(temp_cut_clip, output_clip_path)
-                            app_logger.info(f"[BRollEngine] Trecho aprovado e gravado: {output_clip_path} (ID: {vid_id} - '{vid_title}')")
+
+                            # Aplica tratamento de resolução HD, descompressão e nitidez
+                            if DEFAULT_VIDEO_ENHANCER:
+                                safe_status(status_callback, f"✨ Aplicando tratamento Full HD 1080x1920 e nitidez em *'{vid_title[:30]}'*...")
+                                ok_hd, _ = DEFAULT_VIDEO_ENHANCER.enhance_clip(temp_cut_clip, output_clip_path)
+                                if not ok_hd or not os.path.exists(output_clip_path):
+                                    os.rename(temp_cut_clip, output_clip_path)
+                                else:
+                                    try:
+                                        os.remove(temp_cut_clip)
+                                    except:
+                                        pass
+                            else:
+                                os.rename(temp_cut_clip, output_clip_path)
+
+                            app_logger.info(f"[BRollEngine] Trecho Full HD aprovado e gravado: {output_clip_path} (ID: {vid_id} - '{vid_title}')")
                             return True, output_clip_path, vid_id, vid_title, best_inspection
+
                         else:
                             if os.path.exists(temp_cut_clip):
                                 try:

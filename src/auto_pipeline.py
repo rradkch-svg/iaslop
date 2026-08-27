@@ -50,6 +50,8 @@ try:
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
+    from .sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
+    from .video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
 except ImportError:
     from logger import app_logger, LogSpan, record_throttling
     from checkpoint_manager import CheckpointManager, VIDEOS_PER_BATCH
@@ -73,6 +75,9 @@ except ImportError:
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
     from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
+    from sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
+    from video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
+
 
 
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
@@ -118,7 +123,9 @@ class AutoPipelineRunner:
         videos_per_batch: int = VIDEOS_PER_BATCH,
         fast_mode: bool = False,
         enable_bgm: bool = True,
-        bgm_volume: float = 0.12
+        bgm_volume: float = 0.12,
+        enable_sfx: bool = True,
+        sfx_volume: float = 0.35
     ):
         self.checkpoint_mgr = CheckpointManager(root_dir=checkpoint_dir, videos_per_batch=videos_per_batch)
         self.voice = voice
@@ -132,15 +139,19 @@ class AutoPipelineRunner:
         self.fast_mode = fast_mode
         self.enable_bgm = enable_bgm
         self.bgm_volume = bgm_volume
+        self.enable_sfx = enable_sfx
+        self.sfx_volume = sfx_volume
 
         # Garante a chave do Gemini
         api_key = resolve_gemini_api_key()
         if api_key:
             os.environ["GEMINI_API_KEY"] = api_key
 
-        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x, pronúncia e BGM
+        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x, pronúncia, BGM, SFX e HD Enhancer
         self.pronunciation_engine = DEFAULT_PRONUNCIATION_ENGINE
         self.bgm_engine = DEFAULT_BGM_ENGINE or BGMEngine()
+        self.sfx_engine = DEFAULT_SFX_ENGINE or SFXEngine()
+        self.video_enhancer = DEFAULT_VIDEO_ENHANCER or VideoResolutionEnhancer()
         self.audio_engine = AudioEngine(
             voice=self.voice,
             rate=self.rate,
@@ -148,6 +159,7 @@ class AutoPipelineRunner:
             volume=self.volume,
             pronunciation_engine=self.pronunciation_engine
         )
+
 
         self.broll_engine = BRollEngine(max_search_results=6)
         self.reviewer_agent = ReviewerAgent(
@@ -476,6 +488,29 @@ class AutoPipelineRunner:
                         topic_context=ckpt.get("topic", {}).get("hook", "")
                     ) if self.enable_bgm else None
 
+                    # Geração da trilha de Sound FX (SFX: Whooshes, Sinos e Clicks sincronizados)
+                    sfx_track_path = None
+                    if self.enable_sfx:
+                        try:
+                            sfx_cues = self.sfx_engine.detect_sfx_cues(
+                                storyboard=cenas,
+                                words_timing=ckpt.get("words_timing", []),
+                                total_duration=ckpt.get("audio_duration", 60.0)
+                            )
+                            sfx_output_file = os.path.join(v_dir, "sfx_track.wav")
+                            self.sfx_engine.build_sfx_audio_track(
+                                sfx_cues=sfx_cues,
+                                output_wav=sfx_output_file,
+                                total_duration=ckpt.get("audio_duration", 60.0),
+                                master_sfx_volume=self.sfx_volume
+                            )
+                            if os.path.exists(sfx_output_file) and os.path.getsize(sfx_output_file) > 1000:
+                                sfx_track_path = sfx_output_file
+                                ckpt["sfx_file"] = "sfx_track.wav"
+                                print(f"  🔔 Trilha de Sound FX montada com {len(sfx_cues)} efeitos sonoros sincronizados!")
+                        except Exception as e_sfx:
+                            app_logger.warning(f"[AutoPipeline] Falha na montagem de SFX ({str(e_sfx)}). Renderizando sem SFX.")
+
                     success_render = assemble_multi_scene_video(
                         media_scenes=media_list,
                         audio_path=audio_path,
@@ -483,8 +518,11 @@ class AutoPipelineRunner:
                         output_path=final_video_path,
                         bgm_path=bgm_track,
                         bgm_volume=self.bgm_volume,
+                        sfx_path=sfx_track_path,
+                        sfx_volume=self.sfx_volume,
                         topic_context=ckpt.get("topic", {})
                     )
+
 
                     
                     if not success_render or not os.path.exists(final_video_path):

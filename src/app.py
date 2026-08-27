@@ -42,6 +42,8 @@ try:
     from .pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE, BGM_THEME_PROFILES
+    from .sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
+    from .video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
     from .logger import (
         app_logger,
         get_recent_ui_logs,
@@ -72,6 +74,8 @@ except ImportError:
     from pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE, BGM_THEME_PROFILES
+    from sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
+    from video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
     from logger import (
         app_logger,
         get_recent_ui_logs,
@@ -180,9 +184,16 @@ with st.sidebar:
     volume_choice = selected_preset['volume']
 
     st.markdown("---")
-    st.markdown("### 🎵 Música de Fundo (BGM Suspense)")
-    enable_bgm_ui = st.checkbox("🔊 Ativar Trilha Sonora de Suspense", value=True, help="Adiciona música de fundo dark ambient com ducking de volume.")
-    bgm_volume_ui = st.slider("🎚️ Volume da Música (Ducking):", min_value=0.02, max_value=0.30, value=0.12, step=0.01, format="%.2f", help="Volume reduzido para que a voz neural permaneça clara e dominante.")
+    st.markdown("### 🎵 Áudio, BGM & Sound FX")
+    enable_bgm_ui = st.checkbox("🔊 Ativar Trilha Sonora (BGM Suspense)", value=True, help="Adiciona música de fundo dark ambient com ducking de volume.")
+    bgm_volume_ui = st.slider("🎚️ Volume da Música (Ducking):", min_value=0.02, max_value=0.30, value=0.12, step=0.01, format="%.2f")
+
+    enable_sfx_ui = st.checkbox("🔔 Ativar Sound FX (Whooshes, Sinos e Clicks)", value=True, help="Dispara whooshes em transições, sinos em mistérios e clicks em documentos.")
+    sfx_volume_ui = st.slider("🎚️ Volume dos Efeitos (SFX):", min_value=0.10, max_value=0.80, value=0.35, step=0.05, format="%.2f")
+
+    st.markdown("---")
+    st.markdown("### ✨ Resolução & Pós-Processamento")
+    enable_hd_ui = st.checkbox("📺 Forçar Full HD 1080x1920 + Unsharp", value=True, help="Garante upscaling HD com nitidez e equalização de contraste.")
 
 # Header Principal
 st.markdown('<div class="main-header">🔮 MINUTO INEXPLICÁVEL STUDIO</div>', unsafe_allow_html=True)
@@ -204,10 +215,10 @@ def render_throttling_alerts_ui():
                 )
 
 # Tabs Principais
-tab_prod, tab_batches, tab_bgm, tab_memory, tab_phonetics, tab_diag = st.tabs([
+tab_prod, tab_batches, tab_audio_sfx, tab_memory, tab_phonetics, tab_diag = st.tabs([
     "🎬 Estúdio de Produção",
     "📦 Batches & Checkpoints",
-    "🎵 Trilha Sonora (BGM)",
+    "🔔 Sound FX & Trilha Sonora",
     "📈 Memória Algorítmica & Métricas",
     "🗣️ Dicionário Fonético",
     "📊 Central de Logs & Diagnóstico"
@@ -359,29 +370,29 @@ with tab_batches:
     else:
         st.info("Blacklist vazia.")
 
-with tab_bgm:
-    st.markdown("### 🎵 Soundbank de Suspense & Música de Fundo (BGM)")
-    st.markdown(
-        "Trilhas sonoras de **Dark Ambient, Drones Investigativos e Tensão Cinematográfica** "
-        "sem direitos autorais (Royalty-Free / Zero Copyright), mixadas com **ducking de volume** automático para manter a clareza da voz."
-    )
-
-    bgm_eng = DEFAULT_BGM_ENGINE or BGMEngine()
-    tracks = bgm_eng.list_available_tracks()
+with tab_audio_sfx:
+    st.markdown("### 🔔 Sound FX & 🎵 Trilha Sonora de Suspense")
     
-    st.markdown(f"**Trilhas Disponíveis no Banco Local:** `{len(tracks)} faixas`")
+    c_sfx_info1, c_sfx_info2 = st.columns(2)
+    with c_sfx_info1:
+        st.markdown("#### 🔔 Sound FX (Transições, Sinos & Clicks)")
+        st.caption("Efeitos sonoros sincronizados nos milissegundos exatos de cortes de cena e palavras de revelação.")
+        sfx_eng = DEFAULT_SFX_ENGINE or SFXEngine()
+        sfx_list = sfx_eng.list_available_sfx()
+        for s_item in sfx_list:
+            st.markdown(f"**{s_item['filename']}** ({s_item['size_kb']} KB)")
+            if os.path.exists(s_item["path"]):
+                st.audio(s_item["path"])
     
-    for t_info in tracks:
-        with st.container():
-            fn = t_info["filename"]
-            fp = t_info["path"]
-            col_b1, col_b2 = st.columns([2, 3])
-            with col_b1:
-                st.markdown(f"🎧 **{fn}** ({t_info['size_kb']} KB)")
-            with col_b2:
-                if os.path.exists(fp):
-                    st.audio(fp)
-        st.markdown("---")
+    with c_sfx_info2:
+        st.markdown("#### 🎵 Trilha Sonora BGM (Dark Ambient)")
+        st.caption("Ambiências de suspense com ducking de volume em -20dB para destacar a voz neural.")
+        bgm_eng = DEFAULT_BGM_ENGINE or BGMEngine()
+        bgm_list = bgm_eng.list_available_tracks()
+        for b_item in bgm_list:
+            st.markdown(f"**{b_item['filename']}** ({b_item['size_kb']} KB)")
+            if os.path.exists(b_item["path"]):
+                st.audio(b_item["path"])
 
     with st.expander("🌐 Baixar Nova Trilha de Suspense Sem Copyright (YouTube Audio Library)"):
         with st.form("form_download_bgm"):
