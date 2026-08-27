@@ -213,10 +213,13 @@ class AutoPipelineRunner:
         print(f"\n🎬 Processando [{b_name}/{v_name}] em: {v_dir}")
 
         with LogSpan(f"process_single_video_{b_name}_{v_name}"):
-            stage = ckpt.get("status", "NOT_STARTED")
+            res_stage, ckpt = self.checkpoint_mgr.determine_video_resume_stage(batch_idx, video_idx)
+            stage = ckpt.get("status", res_stage)
 
-            if stage == "RENDER_COMPLETED":
+            if stage in ("COMPLETED", "RENDER_COMPLETED"):
                 final_v = os.path.join(v_dir, ckpt.get("final_video", "final_output.mp4"))
+                if not os.path.exists(final_v):
+                    final_v = os.path.join(v_dir, ckpt.get("final_video_file", "final_video.mp4"))
                 if os.path.exists(final_v) and os.path.getsize(final_v) > 1000:
                     print(f"  ✨ Vídeo já concluído e renderizado anteriormente: {final_v}")
                     return True
@@ -225,8 +228,9 @@ class AutoPipelineRunner:
                     stage = "RENDER_FINAL"
 
             # ETAPA 1: GERAÇÃO E ESCOLHA DE TEMA INÉDITO (PROPOSER AGENT + BLACKLIST SEMÂNTICA)
-            if stage in ("NOT_STARTED", "TOPIC_PENDING") or "topic" not in ckpt:
+            if stage in ("NOT_STARTED", "PENDING", "TOPIC_PENDING", "GENERATE_TOPIC") or not ckpt.get("topic") or not ckpt.get("topic", {}).get("tema"):
                 print("  🔍 [1/6] Gerando e auditando tema inédito em essência...")
+
                 blacklist_titles = self.checkpoint_mgr.get_blacklist_titles()
                 
                 max_topic_attempts = 4
@@ -284,9 +288,9 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 1.5: DISSERTAÇÃO FACTUAL PROFUNDA (DISSERTATION AGENT)
-            if stage == "GENERATE_DISSERTATION" or (stage == "GENERATE_STORYBOARD" and "dissertation" not in ckpt):
+            if stage in ("GENERATE_DISSERTATION", "TOPIC_READY") or (stage in ("GENERATE_STORYBOARD", "STORYBOARD_PENDING") and "dissertation" not in ckpt):
                 print("  🔬 [1.5/6] Construindo dissertação documental profunda e factual (DissertationAgent)...")
-                topic = ckpt["topic"]
+                topic = ckpt.get("topic", {})
                 try:
                     dissertacao_data = self.dissertation_agent.generate_dissertation(
                         topic,
@@ -314,9 +318,9 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 2: ROTEIRIZAÇÃO E STORYBOARD (DIRECTOR AGENT)
-            if stage == "GENERATE_STORYBOARD":
+            if stage in ("GENERATE_STORYBOARD", "DISSERTATION_READY", "STORYBOARD_PENDING"):
                 print("  ✍️ [2/6] Gerando roteiro investigativo e plano de cortes (DirectorAgent)...")
-                topic = ckpt["topic"]
+                topic = ckpt.get("topic", {})
                 dissertacao_info = ckpt.get("dissertation")
                 try:
                     cenas = self.director_agent.generate_storyboard(
@@ -342,7 +346,7 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 3: SÍNTESE DE VOZ NEURAL (EDGE-TTS COM ADAPTAÇÃO FONÉTICA)
-            if stage == "GENERATE_AUDIO":
+            if stage in ("GENERATE_AUDIO", "STORYBOARD_READY", "AUDIO_PENDING"):
                 print(f"  🎙️ [3/6] Sintetizando narração neural ({self.voice} - {self.rate})...")
                 cenas = ckpt.get("storyboard", [])
                 full_script = " ".join([c.get("fala", "").strip() for c in cenas if c.get("fala")])
@@ -373,7 +377,7 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 4: GERAÇÃO DE LEGENDAS DINÂMICAS ASS (ESTILO SHORT VIRAL)
-            if stage == "PROCESS_SUBTITLES":
+            if stage in ("PROCESS_SUBTITLES", "GENERATE_SUBTITLES", "AUDIO_READY", "SUBTITLES_PENDING"):
                 print("  📝 [4/6] Gerando legendas dinâmicas animadas (ASS)...")
                 words_timing = ckpt.get("words_timing", [])
                 ass_path = os.path.join(v_dir, "subtitles.ass")
@@ -395,7 +399,7 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 5: DOWNLOAD E AUDITORIA DE B-ROLL DO YOUTUBE
-            if stage == "FETCH_BROLL":
+            if stage in ("FETCH_BROLL", "PROCESS_SCENES", "SUBTITLES_READY", "BROLL_PENDING"):
                 print("  🎥 [5/6] Baixando e auditando B-Roll histórico do YouTube...")
                 cenas = ckpt.get("storyboard", [])
                 broll_dir = os.path.join(v_dir, "broll")
@@ -451,7 +455,8 @@ class AutoPipelineRunner:
                 return False
 
             # ETAPA 6: RENDERIZAÇÃO FINAL MULTI-CENA COM FFMPEG
-            if stage == "RENDER_FINAL":
+            if stage in ("RENDER_FINAL", "BROLL_READY", "SCENES_READY", "RENDER_PENDING"):
+
                 print("  🎞️ [6/6] Renderizando vídeo final 9:16 com áudio, B-Roll e legendas ASS...")
                 
                 audio_path = os.path.join(v_dir, ckpt.get("audio_file", "audio.mp3"))
@@ -537,6 +542,7 @@ class AutoPipelineRunner:
                     ckpt["status"] = "RENDER_COMPLETED"
                     ckpt["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    self.checkpoint_mgr.mark_video_completed(batch_idx, video_idx, final_video_path)
                     return True
 
                 except Exception as e:
@@ -545,7 +551,8 @@ class AutoPipelineRunner:
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                     return False
 
-        return False
+        return ckpt.get("status") in ("RENDER_COMPLETED", "COMPLETED")
+
 
     def run_batch(self, batch_idx: int) -> bool:
         """Executa sequencialmente todos os vídeos de um batch."""
