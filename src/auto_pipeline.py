@@ -1,27 +1,28 @@
 import os
+import re
 import sys
 import time
 import json
+import random
 import signal
-import argparse
+import threading
 from typing import Dict, Any, List, Optional, Tuple
 
-# Forçar UTF-8 no stdout do Windows
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding="utf-8")
+# Força UTF-8 nos terminais Windows para exibição de emojis e logs limpos
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
-# Configurar sys.path dinamicamente para suportar src/ e raiz
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(CURRENT_DIR) if os.path.basename(CURRENT_DIR) == "src" else CURRENT_DIR
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+if sys.platform == "win32":
+    os.environ["PYTHONIOENCODING"] = "utf-8"
 
-# Carregar variáveis de ambiente (.env)
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -32,15 +33,19 @@ try:
     from .agents import (
         ProposerAgent,
         EvaluatorAgent,
+        DissertationAgent,
         DirectorAgent,
         ReviewerAgent,
         SemanticAuditorAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
+        resolve_gemini_api_keys,
         validate_gemini_api_connection,
         save_video_metadata_file
     )
-    from .audio import AudioEngine, FALLBACK_VOICES
+    from .pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
+    from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
+    from .audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
     from .broll_engine import BRollEngine, find_ffmpeg_binary
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
@@ -50,119 +55,91 @@ except ImportError:
     from agents import (
         ProposerAgent,
         EvaluatorAgent,
+        DissertationAgent,
         DirectorAgent,
         ReviewerAgent,
         SemanticAuditorAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
+        resolve_gemini_api_keys,
         validate_gemini_api_connection,
         save_video_metadata_file
     )
-    from audio import AudioEngine, FALLBACK_VOICES
+    from pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
+    from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
+    from audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
     from broll_engine import BRollEngine, find_ffmpeg_binary
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
 
-
-
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
 RUNNING = True
 
-def signal_handler(sig, frame):
+def handle_sigint(signum, frame):
     global RUNNING
-    print("\n\n⚠️ [AutoPipeline] Sinal de interrupção recebido (SIGINT/SIGTERM). Finalizando etapa atual com segurança...")
-    app_logger.info("[AutoPipeline] Interrupção solicitada pelo usuário/sistema. Salvando estado...")
-    RUNNING = False
+    if RUNNING:
+        print("\n\n⚠️ SINAL DE INTERRUPÇÃO DETECTADO (Ctrl+C)!")
+        print("💾 Finalizando a operação atômica atual e persistindo o checkpoint no disco...")
+        RUNNING = False
+    else:
+        print("\nForçando encerramento imediato...")
+        sys.exit(1)
 
-signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGINT, handle_sigint)
 try:
-    signal.signal(signal.SIGTERM, signal_handler)
-except:
+    signal.signal(signal.SIGTERM, handle_sigint)
+except Exception:
     pass
-
-class SingleInstanceLock:
-    """
-    Garante que apenas uma instância do auto_pipeline execute por vez,
-    evitando concorrência ou duplicação de processos acessando os mesmos checkpoints.
-    """
-    def __init__(self, lock_file_path: str):
-        self.lock_file_path = lock_file_path
-        self.handle = None
-
-    def acquire(self) -> bool:
-        os.makedirs(os.path.dirname(os.path.abspath(self.lock_file_path)), exist_ok=True)
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                self.handle = open(self.lock_file_path, "a+")
-                self.handle.seek(0)
-                msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
-                self.handle.truncate(0)
-                self.handle.write(str(os.getpid()))
-                self.handle.flush()
-            else:
-                import fcntl
-                self.handle = open(self.lock_file_path, "w+")
-                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                self.handle.write(str(os.getpid()))
-                self.handle.flush()
-            atexit.register(self.release)
-            return True
-        except (IOError, OSError, PermissionError, BlockingIOError):
-            return False
-
-    def release(self):
-        if self.handle:
-            try:
-                if sys.platform == "win32":
-                    import msvcrt
-                    self.handle.seek(0)
-                    msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
-                self.handle.close()
-                if os.path.exists(self.lock_file_path):
-                    os.remove(self.lock_file_path)
-            except Exception:
-                pass
-            self.handle = None
 
 class AutoPipelineRunner:
     """
-    Executor mestre do pipeline em modo autônomo.
-    Processa batches de 10 vídeos (batch_0 .. batch_N) com recuperação
-    automática de checkpoints em caso de queda de energia ou reinicialização.
+    Orquestrador Autônomo e Resiliente de Produção de Vídeos em Lote (9:16 Vertical).
+    Garante:
+    1. Geração e verificação semântica profunda de temas (sem duplicatas em essência).
+    2. Pesquisa factual densa via DissertationAgent (Fase 1).
+    3. Destilação em roteiro investigativo hipnótico via DirectorAgent (Fase 2).
+    4. Narração com pronúncia fonética precisa para termos estrangeiros via Edge-TTS pt-BR.
+    5. Recuperação imediata de checkpoints em caso de interrupção ou queda de energia.
     """
 
     def __init__(
         self,
         checkpoint_dir: Optional[str] = None,
-        videos_per_batch: int = VIDEOS_PER_BATCH,
-        model_name: str = "gemini-flash-lite-latest",
         voice: str = "pt-BR-AntonioNeural",
         rate: str = "+25%",
-        max_workers: int = 4,
+        pitch: str = "+0Hz",
+        volume: str = "+0%",
+        model_name: str = "gemini-flash-lite-latest",
         auto_fallback: bool = True,
         auto_cooldown: bool = True,
-        primary_subtitle_color: str = "FFFFFF",
-        highlight_subtitle_color: str = "FFE500"
+        videos_per_batch: int = VIDEOS_PER_BATCH,
+        fast_mode: bool = False
     ):
         self.checkpoint_mgr = CheckpointManager(root_dir=checkpoint_dir, videos_per_batch=videos_per_batch)
-        self.videos_per_batch = videos_per_batch
-        self.model_name = model_name
         self.voice = voice
         self.rate = rate
-        self.max_workers = max_workers
+        self.pitch = pitch
+        self.volume = volume
+        self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
-        self.primary_subtitle_color = primary_subtitle_color.lstrip("#")
-        self.highlight_subtitle_color = highlight_subtitle_color.lstrip("#")
+        self.videos_per_batch = videos_per_batch
+        self.fast_mode = fast_mode
 
         # Garante a chave do Gemini
         api_key = resolve_gemini_api_key()
         if api_key:
             os.environ["GEMINI_API_KEY"] = api_key
 
-        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x
-        self.audio_engine = AudioEngine(voice=self.voice, rate=self.rate)
+        # Instanciação dos motores reutilizáveis com ritmo acelerado 1.25x e pronúncia
+        self.pronunciation_engine = DEFAULT_PRONUNCIATION_ENGINE
+        self.audio_engine = AudioEngine(
+            voice=self.voice,
+            rate=self.rate,
+            pitch=self.pitch,
+            volume=self.volume,
+            pronunciation_engine=self.pronunciation_engine
+        )
         self.broll_engine = BRollEngine(max_search_results=6)
         self.reviewer_agent = ReviewerAgent(
             model_name=self.model_name,
@@ -170,6 +147,11 @@ class AutoPipelineRunner:
             auto_cooldown=self.auto_cooldown
         )
         self.proposer_agent = ProposerAgent(
+            model_name=self.model_name,
+            auto_fallback=self.auto_fallback,
+            auto_cooldown=self.auto_cooldown
+        )
+        self.dissertation_agent = DissertationAgent(
             model_name=self.model_name,
             auto_fallback=self.auto_fallback,
             auto_cooldown=self.auto_cooldown
@@ -185,72 +167,45 @@ class AutoPipelineRunner:
             auto_cooldown=self.auto_cooldown
         )
 
-
     def print_banner(self):
         print("=" * 75)
         print("🔮 MINUTO INEXPLICÁVEL - GERAÇÃO E RECUPERAÇÃO AUTOMÁTICA (BATCHES 9:16)")
         print("=" * 75)
         print(f"📁 Pasta de Checkpoints : {self.checkpoint_mgr.root_dir}")
         print(f"📦 Vídeos por Batch    : {self.videos_per_batch}")
-        print(f"🤖 Modelo de IA        : {self.model_name}")
-        print(f"🎙️ Voz Neural (TTS)    : {self.voice}")
-        print(f"⚡ Dinâmica / Ritmo    : {self.rate} (1.25x Acelerado)")
-        print(f"⚡ Threads Paralelas   : {self.max_workers}")
+        print(f"🎙️ Voz Neural TTS      : {self.voice} ({self.rate})")
+        print(f"🧠 Modelo de IA Primário: {self.model_name}")
+        keys_pool = resolve_gemini_api_keys()
+        print(f"🔑 Pool de Chaves Gemini : {len(keys_pool)} chave(s) detectada(s)")
         print("=" * 75)
-        print()
-
-    def show_status(self):
-        """Exibe um resumo detalhado do progresso atual de todos os batches."""
-        state = self.checkpoint_mgr.load_global_state()
-        blacklist = self.checkpoint_mgr.load_blacklist()
-        
-        print("\n📊 RESUMO DO STATUS ATUAL:")
-        print(f"• Total de Vídeos 100% Concluídos : {state.get('total_videos_completed', 0)}")
-        print(f"• Batch Ativo Atual               : batch_{state.get('current_batch_index', 0)}")
-        print(f"• Total de Temas na Blacklist     : {len(blacklist)}")
-        print("\n📦 BATCHES REGISTRADOS NO DISCO:")
-        
-        batches = state.get("batches", {})
-        if not batches:
-            print("  (Nenhum batch iniciado ainda)")
-        else:
-            for b_name, b_data in sorted(batches.items(), key=lambda x: x[1].get("batch_index", 0)):
-                status_icon = "✅" if b_data.get("status") == "COMPLETED" else "⏳"
-                comp_cnt = b_data.get("completed_videos_count", 0)
-                tot_cnt = b_data.get("total_videos", self.videos_per_batch)
-                print(f"  {status_icon} [{b_name}] Status: {b_data.get('status')} | Concluídos: {comp_cnt}/{tot_cnt}")
-                
-                # Lista status dos vídeos
-                v_dict = b_data.get("videos", {})
-                v_summary = " ".join([f"v{i}:{'✅' if v_dict.get(f'video_{i}')=='COMPLETED' else '⏳'}" for i in range(tot_cnt)])
-                print(f"     └─ {v_summary}")
-        print()
 
     def process_single_video(self, batch_idx: int, video_idx: int) -> bool:
         """
-        Processa um único vídeo respeitando todos os checkpoints já salvos.
-        Se faltou luz na etapa 4, retoma exatamente a partir da etapa 4 sem repetir as anteriores.
+        Executa ou retoma todas as 6 etapas atômicas de produção de um único vídeo.
+        Salva o checkpoint imediatamente após a conclusão de cada etapa.
         """
         b_name = f"batch_{batch_idx}"
         v_name = f"video_{video_idx}"
         v_dir = self.checkpoint_mgr.get_video_dir(batch_idx, video_idx)
-        
-        app_logger.info(f"[AutoPipeline] Iniciando/Retomando {b_name}/{v_name}...")
-        print(f"\n🎬 >>> PROCESSANDO: {b_name.upper()} / {v_name.upper()} <<<")
+        ckpt = self.checkpoint_mgr.load_video_checkpoint(batch_idx, video_idx)
 
-        with LogSpan(f"AutoPipeline_{b_name}_{v_name}"):
-            # 1. Determina a etapa exata de retomada
-            stage, ckpt = self.checkpoint_mgr.determine_video_resume_stage(batch_idx, video_idx)
-            
-            if stage == "COMPLETED":
-                print(f"  ✅ Vídeo {b_name}/{v_name} já está 100% finalizado e íntegro no disco.")
-                return True
+        print(f"\n🎬 Processando [{b_name}/{v_name}] em: {v_dir}")
 
-            print(f"  📌 Etapa de retomada identificada: [{stage}]")
+        with LogSpan(f"process_single_video_{b_name}_{v_name}"):
+            stage = ckpt.get("status", "NOT_STARTED")
 
-            # ETAPA 1: GERAÇÃO DE NOVO TEMA INÉDITO (COM CONSULTA À BLACKLIST)
-            if stage == "GENERATE_TOPIC":
-                print("  💡 [1/6] Propondo tema inédito com ProposerAgent (consultando Blacklist)...")
+            if stage == "RENDER_COMPLETED":
+                final_v = os.path.join(v_dir, ckpt.get("final_video", "final_output.mp4"))
+                if os.path.exists(final_v) and os.path.getsize(final_v) > 1000:
+                    print(f"  ✨ Vídeo já concluído e renderizado anteriormente: {final_v}")
+                    return True
+                else:
+                    print("  ⚠️ Checkpoint indicava RENDER_COMPLETED, mas o arquivo de vídeo não existe. Re-executando render...")
+                    stage = "RENDER_FINAL"
+
+            # ETAPA 1: GERAÇÃO E ESCOLHA DE TEMA INÉDITO (PROPOSER AGENT + BLACKLIST SEMÂNTICA)
+            if stage in ("NOT_STARTED", "TOPIC_PENDING") or "topic" not in ckpt:
+                print("  🔍 [1/6] Gerando e auditando tema inédito em essência...")
                 blacklist_titles = self.checkpoint_mgr.get_blacklist_titles()
                 
                 max_topic_attempts = 4
@@ -277,7 +232,6 @@ class AutoPipelineRunner:
                                     break
                                 else:
                                     print(f"    ⚠️ Tema descartado pela Blacklist (Essência Repetida): '{t_name}' ({blk_reason})")
-
                             
                             if selected_topic:
                                 break
@@ -294,7 +248,6 @@ class AutoPipelineRunner:
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                     return False
 
-
                 print(f"  🎯 TEMA APROVADO: \"{selected_topic.get('tema')}\"")
                 ckpt["topic"] = selected_topic
                 ckpt["status"] = "TOPIC_READY"
@@ -302,20 +255,52 @@ class AutoPipelineRunner:
                 ckpt["metadata_file"] = "metadata.txt"
                 self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                 
-                # Registra IMEDIATAMENTE na Blacklist para reservar este tema
+                # Registra IMEDIATAMENTE na Blacklist com perfil semântico
                 self.checkpoint_mgr.add_to_blacklist(selected_topic, b_name, v_name)
-                stage = "GENERATE_STORYBOARD"
+                stage = "GENERATE_DISSERTATION"
+
+            if not RUNNING:
+                return False
+
+            # ETAPA 1.5: DISSERTAÇÃO FACTUAL PROFUNDA (DISSERTATION AGENT)
+            if stage == "GENERATE_DISSERTATION" or (stage == "GENERATE_STORYBOARD" and "dissertation" not in ckpt):
+                print("  🔬 [1.5/6] Construindo dissertação documental profunda e factual (DissertationAgent)...")
+                topic = ckpt["topic"]
+                try:
+                    dissertacao_data = self.dissertation_agent.generate_dissertation(
+                        topic,
+                        status_callback=lambda m: print(f"    🔬 {m}")
+                    )
+                    ckpt["dissertation"] = dissertacao_data
+                    ckpt["status"] = "DISSERTATION_READY"
+                    
+                    dissertacao_file = os.path.join(v_dir, "dissertacao.txt")
+                    with open(dissertacao_file, "w", encoding="utf-8") as df:
+                        df.write(f"ENTIDADE: {dissertacao_data.get('entidade_principal')}\n\n")
+                        df.write(f"DADOS QUANTITATIVOS:\n{json.dumps(dissertacao_data.get('dados_quantitativos', {}), ensure_ascii=False, indent=2)}\n\n")
+                        df.write(f"ANOMALIA / ENIGMA CENTRAL:\n{dissertacao_data.get('anomalia_ou_enigma_central')}\n\n")
+                        df.write(f"TEORIAS E EVIDÊNCIAS:\n{dissertacao_data.get('teorias_e_evidencias')}\n\n")
+                        df.write(f"DISSERTAÇÃO COMPLETA:\n{dissertacao_data.get('dissertacao_completa')}\n")
+                    print(f"  📄 Dissertação factual gravada em: {dissertacao_file}")
+                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    stage = "GENERATE_STORYBOARD"
+                except Exception as e:
+                    app_logger.warning(f"[AutoPipeline] Falha na dissertação ({str(e)}). Prosseguindo com síntese direta.")
+                    ckpt["dissertation"] = {"dissertacao_completa": f"{topic.get('hook', '')} {topic.get('explicacao_tecnica', '')}"}
+                    stage = "GENERATE_STORYBOARD"
 
             if not RUNNING:
                 return False
 
             # ETAPA 2: ROTEIRIZAÇÃO E STORYBOARD (DIRECTOR AGENT)
             if stage == "GENERATE_STORYBOARD":
-                print("  ✍️ [2/6] Gerando roteiro de 1 a 2 minutos e plano de cortes (DirectorAgent)...")
+                print("  ✍️ [2/6] Gerando roteiro investigativo e plano de cortes (DirectorAgent)...")
                 topic = ckpt["topic"]
+                dissertacao_info = ckpt.get("dissertation")
                 try:
                     cenas = self.director_agent.generate_storyboard(
                         topic,
+                        dissertacao_data=dissertacao_info,
                         status_callback=lambda m: print(f"    ✍️ {m}")
                     )
                     if not cenas or len(cenas) < 3:
@@ -335,9 +320,9 @@ class AutoPipelineRunner:
             if not RUNNING:
                 return False
 
-            # ETAPA 3: SÍNTESE DE VOZ NEURAL (EDGE-TTS)
+            # ETAPA 3: SÍNTESE DE VOZ NEURAL (EDGE-TTS COM ADAPTAÇÃO FONÉTICA)
             if stage == "GENERATE_AUDIO":
-                print(f"  🎙️ [3/6] Sintetizando narração neural ({self.voice})...")
+                print(f"  🎙️ [3/6] Sintetizando narração neural ({self.voice} - {self.rate})...")
                 cenas = ckpt.get("storyboard", [])
                 full_script = " ".join([c.get("fala", "").strip() for c in cenas if c.get("fala")])
                 if not full_script:
@@ -360,217 +345,229 @@ class AutoPipelineRunner:
                 ckpt["words_timing"] = words_timing
                 ckpt["status"] = "AUDIO_READY"
                 self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
-                print(f"  ✅ Narração concluída: {total_audio_dur:.1f}s ({len(words_timing)} palavras)")
-                stage = "GENERATE_SUBTITLES"
+                print(f"  ✅ Áudio neural sintetizado ({total_audio_dur:.1f}s)!")
+                stage = "PROCESS_SUBTITLES"
 
             if not RUNNING:
                 return False
 
-            # ETAPA 4: FORMATO DE LEGENDAS HORMOZI (PILL BOX AMARELA)
-            if stage == "GENERATE_SUBTITLES":
-                print("  🎨 [4/6] Compilando legendas ASS dinâmicas com destaque Pill Box...")
+            # ETAPA 4: GERAÇÃO DE LEGENDAS DINÂMICAS ASS (ESTILO SHORT VIRAL)
+            if stage == "PROCESS_SUBTITLES":
+                print("  📝 [4/6] Gerando legendas dinâmicas animadas (ASS)...")
                 words_timing = ckpt.get("words_timing", [])
                 ass_path = os.path.join(v_dir, "subtitles.ass")
                 
-                convert_words_to_ass(
-                    words_timing=words_timing,
-                    output_ass=ass_path,
-                    primary_color=self.primary_subtitle_color,
-                    highlight_color=self.highlight_subtitle_color,
-                    tail_overhead=0.4
-                )
-                ckpt["subtitles_file"] = "subtitles.ass"
-                ckpt["status"] = "SUBTITLES_READY"
-                self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
-                print(f"  ✅ Legendas ASS geradas com sucesso!")
-                stage = "PROCESS_SCENES"
+                try:
+                    convert_words_to_ass(words_timing, ass_path)
+                    ckpt["ass_file"] = "subtitles.ass"
+                    ckpt["status"] = "SUBTITLES_READY"
+                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    print("  ✅ Legendas ASS formatadas e salvas!")
+                    stage = "FETCH_BROLL"
+                except Exception as e:
+                    app_logger.error(f"[AutoPipeline] Falha nas legendas ASS: {str(e)}")
+                    ckpt["error"] = f"Falha nas legendas: {str(e)}"
+                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    return False
 
             if not RUNNING:
                 return False
 
-            # ETAPA 5: DOWNLOAD E AUDITORIA CONCORRENTE DE CENAS DO YOUTUBE
-            if stage == "PROCESS_SCENES":
-                print(f"  🎬 [5/6] Coletando e auditando B-rolls em paralelo ({self.max_workers} threads)...")
+            # ETAPA 5: DOWNLOAD E AUDITORIA DE B-ROLL DO YOUTUBE
+            if stage == "FETCH_BROLL":
+                print("  🎥 [5/6] Baixando e auditando B-Roll histórico do YouTube...")
                 cenas = ckpt.get("storyboard", [])
-                global_topic = ckpt.get("topic", {}).get("tema", "Mistério Desclassificado")
-                total_audio_dur = ckpt.get("audio_duration", 60.0)
+                broll_dir = os.path.join(v_dir, "broll")
+                os.makedirs(broll_dir, exist_ok=True)
+                
+                scenes_media = ckpt.get("scenes_media", {})
+                
+                for idx, c in enumerate(cenas):
+                    if not RUNNING:
+                        return False
 
-                def on_parallel_status(msg):
-                    print(f"    📡 {msg}")
+                    sc_id = str(c.get("scene_id", idx + 1))
+                    
+                    if sc_id in scenes_media and os.path.exists(scenes_media[sc_id].get("file", "")):
+                        continue
 
-                def on_parallel_prog(done, total):
-                    print(f"    📊 Progresso das Cenas: {done}/{total} auditadas")
+                    query = c.get("youtube_query") or c.get("fala", "")
+                    dur_est = float(c.get("duracao_estimada", 5.0))
+                    
+                    print(f"    🔍 Cena {sc_id}/{len(cenas)}: Buscando '{query}'...")
+                    
+                    # 1. Busca e baixa segmento do YouTube
+                    broll_res = self.broll_engine.fetch_scene_broll(
+                        query=query,
+                        output_dir=broll_dir,
+                        scene_idx=int(sc_id) if sc_id.isdigit() else idx,
+                        target_duration=dur_est
+                    )
+                    
+                    video_file = broll_res.get("video_file")
+                    preview_frame = broll_res.get("preview_frame")
+                    
+                    # 2. Auditoria visual com ReviewerAgent
+                    if video_file and preview_frame and os.path.exists(preview_frame):
+                        review_result = self.reviewer_agent.review_frame(
+                            image_path=preview_frame,
+                            context_text=c.get("fala", query)
+                        )
+                        broll_res["review"] = review_result
+                        if not review_result.get("aprovado", True):
+                            print(f"    ⚠️ Frame reprovado pelo Revisor: {review_result.get('motivo')}")
+
+                    scenes_media[sc_id] = broll_res
+                    ckpt["scenes_media"] = scenes_media
+                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+
+                ckpt["status"] = "BROLL_READY"
+                self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                print(f"  ✅ Todas as {len(cenas)} cenas de B-Roll foram preparadas!")
+                stage = "RENDER_FINAL"
+
+            if not RUNNING:
+                return False
+
+            # ETAPA 6: RENDERIZAÇÃO FINAL MULTI-CENA COM FFMPEG
+            if stage == "RENDER_FINAL":
+                print("  🎞️ [6/6] Renderizando vídeo final 9:16 com áudio, B-Roll e legendas ASS...")
+                
+                audio_path = os.path.join(v_dir, ckpt.get("audio_file", "audio.mp3"))
+                ass_path = os.path.join(v_dir, ckpt.get("ass_file", "subtitles.ass"))
+                final_video_path = os.path.join(v_dir, "final_output.mp4")
+                
+                cenas = ckpt.get("storyboard", [])
+                scenes_media = ckpt.get("scenes_media", {})
+                
+                # Monta a lista ordenada de segmentos de vídeo para cada cena
+                media_list = []
+                for idx, c in enumerate(cenas):
+                    sc_id = str(c.get("scene_id", idx + 1))
+                    m_data = scenes_media.get(sc_id, {})
+                    v_file = m_data.get("video_file")
+                    dur = float(c.get("duracao_estimada", 5.0))
+                    if v_file and os.path.exists(v_file):
+                        media_list.append({
+                            "type": "video",
+                            "file": v_file,
+                            "duration": dur,
+                            "is_fallback": m_data.get("is_fallback", False)
+                        })
+                    else:
+                        media_list.append({
+                            "type": "color_placeholder",
+                            "text": c.get("fala", ""),
+                            "duration": dur
+                        })
 
                 try:
-                    scene_clips, scene_audits = self.broll_engine.process_all_scenes_parallel(
-                        cenas=cenas,
-                        global_topic=global_topic,
-                        reviewer_agent=self.reviewer_agent,
-                        project_dir=v_dir,
-                        total_audio_duration=total_audio_dur,
-                        words_timing=ckpt.get("words_timing"),
-                        tail_overhead=0.5,
-                        max_workers=self.max_workers,
-                        status_callback=on_parallel_status,
-                        progress_callback=on_parallel_prog
+                    success_render = assemble_multi_scene_video(
+                        media_scenes=media_list,
+                        audio_path=audio_path,
+                        subtitles_path=ass_path if os.path.exists(ass_path) else None,
+                        output_path=final_video_path,
+                        topic_context=ckpt.get("topic", {})
                     )
+                    
+                    if not success_render or not os.path.exists(final_video_path):
+                        raise Exception("Falha no FFmpeg ao montar o vídeo final.")
 
-                    if not scene_clips:
-                        raise Exception("Nenhum clipe de B-roll foi aprovado pelo ReviewerAgent.")
-
-                    ckpt["scene_clips"] = scene_clips
-                    ckpt["scene_audits"] = scene_audits
-                    ckpt["status"] = "SCENES_READY"
+                    file_size = os.path.getsize(final_video_path)
+                    print(f"  🎉 VÍDEO CONCLUÍDO COM SUCESSO! ({file_size / (1024*1024):.2f} MB)")
+                    print(f"  🎬 Arquivo: {final_video_path}")
+                    
+                    ckpt["final_video"] = "final_output.mp4"
+                    ckpt["final_video_size"] = file_size
+                    ckpt["status"] = "RENDER_COMPLETED"
+                    ckpt["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
-                    print(f"  ✅ {len(scene_clips)} cenas 100% auditadas e salvas em disco!")
-                    stage = "RENDER_FINAL"
+                    return True
+
                 except Exception as e:
-                    err_msg = f"Falha na obtenção de cenas: {str(e)}"
-                    app_logger.error(f"[AutoPipeline] {err_msg}")
-                    ckpt["error"] = err_msg
+                    app_logger.error(f"[AutoPipeline] Erro na renderização final: {str(e)}")
+                    ckpt["error"] = f"Erro no render: {str(e)}"
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                     return False
 
+        return False
+
+    def run_batch(self, batch_idx: int) -> bool:
+        """Executa sequencialmente todos os vídeos de um batch."""
+        b_name = f"batch_{batch_idx}"
+        print(f"\n{'#' * 75}")
+        print(f"🚀 INICIANDO EXECUÇÃO DO {b_name.upper()} ({self.videos_per_batch} VÍDEOS)")
+        print(f"{'#' * 75}")
+
+        completed_count = 0
+        for v_idx in range(self.videos_per_batch):
             if not RUNNING:
+                print("\n🛑 Pipeline pausado pelo usuário. Retomada preservada nos checkpoints.")
                 return False
 
-            # ETAPA 6: RENDERIZAÇÃO FINAL NO FFMPEG
-            if stage == "RENDER_FINAL":
-                print("  ⚡ [6/6] Renderizando Composição Final 9:16 no FFmpeg...")
-                scene_clips = ckpt.get("scene_clips", [])
-                audio_path = os.path.join(v_dir, ckpt.get("audio_file", "audio.mp3"))
-                ass_path = os.path.join(v_dir, ckpt.get("subtitles_file", "subtitles.ass"))
-                final_output = os.path.join(v_dir, "final_video.mp4")
-
-                success_render, msg = assemble_multi_scene_video(
-                    clip_paths=scene_clips,
-                    audio_path=audio_path,
-                    ass_path=ass_path,
-                    output_path=final_output,
-                    status_callback=lambda m: print(f"    ⚡ {m}")
-                )
-
-                if not success_render or not os.path.exists(final_output) or os.path.getsize(final_output) < 50_000:
-                    err_msg = f"Falha na renderização FFmpeg: {msg}"
-                    app_logger.error(f"[AutoPipeline] {err_msg}")
-                    ckpt["error"] = err_msg
-                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+            success = self.process_single_video(batch_idx, v_idx)
+            if success:
+                completed_count += 1
+            else:
+                if not RUNNING:
                     return False
+                print(f"  ⚠️ Aviso: video_{v_idx} do {b_name} não pôde ser completado. Continuando...")
 
-                # Marca como concluído no CheckpointManager
-                meta_file = save_video_metadata_file(v_dir, ckpt.get("topic", {}))
-                ckpt["metadata_file"] = "metadata.txt"
-                self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
-                self.checkpoint_mgr.mark_video_completed(batch_idx, video_idx, final_output)
-                file_size_mb = os.path.getsize(final_output) / (1024 * 1024)
-                print(f"  📄 Metadados salvos: {meta_file}")
-                print(f"  🎉 VÍDEO CONCLUÍDO COM SUCESSO! -> {final_output} ({file_size_mb:.2f} MB)")
-                return True
+        print(f"\n📊 RESUMO DO {b_name.upper()}: {completed_count}/{self.videos_per_batch} vídeos concluídos.")
+        return completed_count == self.videos_per_batch
 
-        return True
-
-    def run_loop(self, max_batches: Optional[int] = None):
-        """
-        Loop infinito ou limitado por max_batches.
-        Processa continuamente batches de 10 vídeos com auto-recuperação.
-        """
+    def run_loop(self, start_batch: Optional[int] = None, max_batches: int = 20):
+        """Loop contínuo autônomo de geração de batches."""
         self.print_banner()
-        self.show_status()
 
-        # Validação obrigatória de Pré-Voo com a API Gemini
-        print("\n🔍 [Pré-Voo] Validando conectividade e autenticação com a API Gemini...")
-        valid_api, api_msg = validate_gemini_api_connection(model_name=self.model_name)
-        if not valid_api:
-            print("\n" + "=" * 75)
-            print("❌ ERRO CRÍTICO DE PRÉ-VOO: Chave Gemini não configurada ou inválida!")
-            print(f"   Detalhe: {api_msg}")
-            print("   💡 Ação: Configure sua chave GEMINI_API_KEY no arquivo .env ou no sistema.")
-            print("   O pipeline foi interrompido com segurança para impedir a geração de vídeos genéricos.")
-            print("=" * 75 + "\n")
-            app_logger.critical(f"[AutoPipeline] Pré-voo falhou: {api_msg}")
+        # Validação obrigatória de pré-voo da API Gemini
+        print("🔍 Executando teste de pré-voo e conectividade da API Gemini...")
+        api_valid, api_msg = validate_gemini_api_connection()
+        if not api_valid:
+            print(f"\n❌ ERRO CRÍTICO NO PRÉ-VOO: {api_msg}")
+            print("🛑 O pipeline foi interrompido para evitar a geração de arquivos genéricos sem chave de IA.")
+            print("👉 Configure sua chave GEMINI_API_KEY no arquivo '.env' ou em 'gemini-api.txt' na raiz do projeto e execute novamente.")
             return
 
-        print(f"  ✅ [Pré-Voo] {api_msg}")
-        print("\n🚀 Iniciando motor de processamento autônomo contínuo...")
+        print(f"✅ Pré-voo concluído: {api_msg}\n")
 
-        
-        while RUNNING:
-            batch_idx, video_idx, b_name, v_name = self.checkpoint_mgr.get_next_work_target()
-            
-            if max_batches is not None and batch_idx >= max_batches:
-                print(f"\n🏁 Limite de {max_batches} batches atingido com sucesso. Finalizando execução!")
+        current_batch, current_video = self.checkpoint_mgr.get_next_pending_target()
+        if start_batch is not None:
+            current_batch = start_batch
+
+        print(f"🎯 Ponto de início determinado: batch_{current_batch} (vídeo pendente: video_{current_video})")
+
+        batch_count = 0
+        while RUNNING and batch_count < max_batches:
+            success = self.run_batch(current_batch)
+            if not RUNNING:
                 break
 
-            print("-" * 75)
-            print(f"📦 [LOTE ATIVO: {b_name.upper()}] • Item #{video_idx + 1} de {self.videos_per_batch}")
-            print("-" * 75)
+            current_batch += 1
+            batch_count += 1
+            print(f"\n⏳ Pausa de 5 segundos antes de iniciar o próximo batch...")
+            time.sleep(5)
 
-            try:
-                success = self.process_single_video(batch_idx, video_idx)
-                if not success:
-                    print(f"⚠️ Houve uma falha no processamento de {b_name}/{v_name}. Aguardando 10s antes da próxima tentativa...")
-                    for _ in range(10):
-                        if not RUNNING:
-                            break
-                        time.sleep(1)
-                else:
-                    time.sleep(2)
-            except Exception as e:
-                app_logger.error(f"[AutoPipeline] Exceção no loop principal ({b_name}/{v_name}): {str(e)}")
-                print(f"❌ Exceção inesperada: {str(e)}")
-                time.sleep(5)
-
-        print("\n🛑 Processamento encerrado.")
-        self.show_status()
+        print("\n🏁 Execução do AutoPipeline finalizada.")
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Slop Studio - Pipeline de Geração e Recuperação Automática")
-    parser.add_argument("--checkpoint-dir", type=str, default=None, help="Diretório raiz de checkpoints")
-    parser.add_argument("--batch-size", type=int, default=10, help="Quantidade de vídeos por batch (padrão: 10)")
-    parser.add_argument("--max-batches", type=int, default=None, help="Quantidade máxima de batches a processar")
-    parser.add_argument("--model", type=str, default="gemini-flash-lite-latest", help="Modelo principal do Gemini")
-    parser.add_argument("--voice", type=str, default="pt-BR-AntonioNeural", help="Voz do Edge-TTS")
-    parser.add_argument("--rate", type=str, default="+25%", help="Taxa de velocidade do TTS (padrão: +25% para 1.25x)")
-    parser.add_argument("--workers", type=int, default=4, help="Quantidade de threads para download e visão")
-    parser.add_argument("--status", action="store_true", help="Exibe apenas o status dos batches e encerra")
-    parser.add_argument("--rebuild", action="store_true", help="Reconstrói o arquivo global_state.json a partir do disco")
-    
+    import argparse
+    parser = argparse.ArgumentParser(description="AutoPipeline Minuto Inexplicável 9:16")
+    parser.add_argument("--batch", type=int, default=None, help="Batch específico para executar")
+    parser.add_argument("--voice", type=str, default="pt-BR-AntonioNeural", help="Voz Neural do Edge-TTS")
+    parser.add_argument("--rate", type=str, default="+25%", help="Taxa de velocidade do áudio (ex: +25%)")
+    parser.add_argument("--pitch", type=str, default="+0Hz", help="Tom vocal (ex: +3Hz)")
+    parser.add_argument("--model", type=str, default="gemini-flash-lite-latest", help="Modelo LLM")
+    parser.add_argument("--max-batches", type=int, default=10, help="Máximo de batches a processar")
     args = parser.parse_args()
 
     runner = AutoPipelineRunner(
-        checkpoint_dir=args.checkpoint_dir,
-        videos_per_batch=args.batch_size,
-        model_name=args.model,
         voice=args.voice,
         rate=args.rate,
-        max_workers=args.workers
+        pitch=args.pitch,
+        model_name=args.model
     )
-
-    if args.rebuild:
-        print("[*] Reconstruindo estado global a partir da pasta checkpoint no disco...")
-        runner.checkpoint_mgr.rebuild_global_state_from_disk()
-        runner.show_status()
-        return
-
-    if args.status:
-        runner.show_status()
-        return
-
-    # Trava de instância única para impedir execuções duplicadas / concorrentes
-    lock_path = os.path.join(runner.checkpoint_mgr.root_dir, ".pipeline.lock")
-    instance_lock = SingleInstanceLock(lock_path)
-    if not instance_lock.acquire():
-        print("\n" + "=" * 75)
-        print("⚠️  [AutoPipeline] AVISO: Uma instância do pipeline já está em execução!")
-        print("    Para evitar concorrência e corrupção de checkpoints, esta instância foi encerrada.")
-        print("=" * 75 + "\n")
-        app_logger.warning("[AutoPipeline] Tentativa de execução duplicada bloqueada com sucesso pelo lock.")
-        return
-
-    try:
-        runner.run_loop(max_batches=args.max_batches)
-    finally:
-        instance_lock.release()
+    runner.run_loop(start_batch=args.batch, max_batches=args.max_batches)
 
 if __name__ == "__main__":
     main()
