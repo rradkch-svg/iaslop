@@ -41,27 +41,9 @@ class TestVideoResolutionEnhancer(unittest.TestCase):
         self.assertEqual(w, 640)
         self.assertEqual(h, 480)
 
-    def test_resolution_filtering_and_480p_cutoff(self):
-        """Verifica se vídeos < 480p são rejeitados e vídeos >= 480p são aceitos."""
-        # 240p e 360p devem ser rejeitados
-        vid_240p = self._create_dummy_video(width=426, height=240)
-        vid_360p = self._create_dummy_video(width=640, height=360)
-        ok_240, _, _ = self.enhancer.is_acceptable_resolution(vid_240p, min_height=480)
-        ok_360, _, _ = self.enhancer.is_acceptable_resolution(vid_360p, min_height=480)
-        self.assertFalse(ok_240, "240p deveria ser rejeitado")
-        self.assertFalse(ok_360, "360p deveria ser rejeitado")
-
-        # 480p, 720p e 1080p devem ser aceitos
-        vid_480p = self._create_dummy_video(width=854, height=480)
-        vid_720p = self._create_dummy_video(width=1280, height=720)
-        ok_480, _, _ = self.enhancer.is_acceptable_resolution(vid_480p, min_height=480)
-        ok_720, _, _ = self.enhancer.is_acceptable_resolution(vid_720p, min_height=480)
-        self.assertTrue(ok_480, "480p deve ser aceito")
-        self.assertTrue(ok_720, "720p deve ser aceito")
-
     def test_enhance_to_full_hd_916(self):
-        """Verifica se um vídeo de 720x1280 é convertido para 1080x1920 Full HD com nitidez."""
-        vid_in = self._create_dummy_video(width=720, height=1280, duration=1.0)
+        """Verifica se um vídeo de qualquer resolução (ex: 640x360) é convertido para 1080x1920 Full HD."""
+        vid_in = self._create_dummy_video(width=640, height=360, duration=1.0)
         vid_hd = os.path.join(self.test_dir, "output_hd.mp4")
 
         success, msg = self.enhancer.enhance_clip(vid_in, vid_hd, sharpen_strength=0.85, denoise=True)

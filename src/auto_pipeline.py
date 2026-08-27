@@ -516,7 +516,7 @@ class AutoPipelineRunner:
                         except Exception as e_sfx:
                             app_logger.warning(f"[AutoPipeline] Falha na montagem de SFX ({str(e_sfx)}). Renderizando sem SFX.")
 
-                    success_render = assemble_multi_scene_video(
+                    success_res = assemble_multi_scene_video(
                         media_scenes=media_list,
                         audio_path=audio_path,
                         subtitles_path=ass_path if os.path.exists(ass_path) else None,
@@ -528,14 +528,16 @@ class AutoPipelineRunner:
                         topic_context=ckpt.get("topic", {})
                     )
 
-
+                    success_render = success_res[0] if isinstance(success_res, tuple) else bool(success_res)
+                    render_msg = success_res[1] if isinstance(success_res, tuple) and len(success_res) > 1 else ""
                     
                     if not success_render or not os.path.exists(final_video_path):
-                        raise Exception("Falha no FFmpeg ao montar o vídeo final.")
+                        raise Exception(f"Falha no FFmpeg ao montar o vídeo final: {render_msg}")
 
                     file_size = os.path.getsize(final_video_path)
                     print(f"  🎉 VÍDEO CONCLUÍDO COM SUCESSO! ({file_size / (1024*1024):.2f} MB)")
                     print(f"  🎬 Arquivo: {final_video_path}")
+
                     
                     ckpt["final_video"] = "final_output.mp4"
                     ckpt["final_video_size"] = file_size

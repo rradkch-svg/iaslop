@@ -86,20 +86,11 @@ class VideoResolutionEnhancer:
 
     def is_acceptable_resolution(self, video_path: str, min_height: int = 480) -> Tuple[bool, int, int]:
         """
-        Verifica se o vídeo fonte possui resolução nativa aceitável (mínimo 480p).
-        Rejeita vídeos de 144p, 240p, 360p para garantir qualidade cinematográfica.
+        Inspeciona dimensões do vídeo para métricas e logs, permitindo upscaling para qualquer resolução.
         """
         w, h = self.get_video_dimensions(video_path)
-        if w == 0 or h == 0:
-            return True, w, h # Se não foi possível inspecionar, não bloqueia por padrão
-        
-        min_dim = min(w, h)
-        max_dim = max(w, h)
-        
-        # Se tanto a menor dimensão for menor que min_height quanto a maior for menor que 720p
-        if min_dim < min_height and max_dim < 720:
-            return False, w, h
         return True, w, h
+
 
     def build_enhancement_filter_graph(
         self,

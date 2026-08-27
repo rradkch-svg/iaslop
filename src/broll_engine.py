@@ -362,13 +362,13 @@ class BRollEngine:
                             app_logger.info(f"[BRollEngine] Candidato '{vid_title}' descartado pelo pré-filtro: {pre_reason}")
                             continue
 
-                    safe_status(status_callback, f"📥 Baixando candidato HD nativo: **{vid_title[:45]}...**")
+                    safe_status(status_callback, f"📥 Baixando candidato HD: **{vid_title[:45]}...**")
 
                     temp_raw_file = os.path.join(tempfile.gettempdir(), f"broll_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
                     temp_cut_clip = os.path.join(tempfile.gettempdir(), f"broll_cut_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
 
                     ydl_opts_download = {
-                        "format": "bestvideo[height>=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=1080]+bestaudio/bestvideo[height>=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=720]+bestaudio/bestvideo[height>=480]+bestaudio/best[height>=720]/best[height>=480]/bestvideo+bestaudio/best",
+                        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
                         "merge_output_format": "mp4",
                         "outtmpl": temp_raw_file,
                         "quiet": True,
@@ -400,7 +400,7 @@ class BRollEngine:
                             else:
                                 continue
 
-                        # 2. Validação Empírica da Duração e Resolução Nativa Mínima (Corte de <480p)
+                        # 2. Validação Empírica da Duração Real com FFprobe
                         actual_dur = get_video_duration(temp_raw_file, self.ffmpeg_bin)
                         if not actual_dur or actual_dur < 1.0:
                             app_logger.warning(f"[BRollEngine] Arquivo corrompido ou sem duração detectável: {temp_raw_file}")
@@ -411,20 +411,6 @@ class BRollEngine:
                                     pass
                             continue
 
-                        # Validação de Resolução Nativa: Descarta vídeos em baixa qualidade (144p, 240p, 360p)
-                        if DEFAULT_VIDEO_ENHANCER:
-                            is_ok_res, raw_w, raw_h = DEFAULT_VIDEO_ENHANCER.is_acceptable_resolution(temp_raw_file, min_height=480)
-                            if not is_ok_res:
-                                safe_status(status_callback, f"🚫 Vídeo descartado por baixa resolução nativa ({raw_w}x{raw_h} < 480p) -> Buscando vídeo em alta resolução...")
-                                app_logger.info(f"[BRollEngine] Vídeo '{vid_title}' ({raw_w}x{raw_h}) descartado: resolução inferior a 480p.")
-                                if os.path.exists(temp_raw_file):
-                                    try:
-                                        os.remove(temp_raw_file)
-                                    except:
-                                        pass
-                                continue
-                            else:
-                                app_logger.info(f"[BRollEngine] Resolução nativa aprovada: {raw_w}x{raw_h} para '{vid_title}'")
 
 
                         # 3. Varredura Multi-Trechos Inteligente com Limites Estritos de Duração
@@ -604,7 +590,69 @@ class BRollEngine:
 
             return False, "", "", "", {"aprovado": False, "motivo": "Nenhum trecho aprovado"}
 
+    def fetch_scene_broll(
+        self,
+        query: str,
+        output_dir: str,
+        scene_idx: int,
+        target_duration: float,
+        global_topic: str = "Mistério Desclassificado",
+        reviewer_agent = None,
+        scene_fala: str = "",
+        status_callback = None
+    ) -> Dict[str, Any]:
+        """
+        Busca, faz download e tratamento de resolução de um clipe específico de cena,
+        gerando também um preview_frame para auditoria visual pelo ReviewerAgent.
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        clip_path = os.path.join(output_dir, f"scene_{scene_idx:02d}.mp4")
+        preview_frame = os.path.join(output_dir, f"preview_{scene_idx:02d}.jpg")
+        
+        seen_ids = getattr(self, "_seen_ids", None)
+        if seen_ids is None:
+            self._seen_ids = set()
+            seen_ids = self._seen_ids
+
+        success, final_path, vid_id, vid_title, inspection = self.search_and_download_clip(
+            query=query,
+            target_duration=target_duration,
+            seen_ids=seen_ids,
+            output_clip_path=clip_path,
+            global_topic=global_topic,
+            reviewer_agent=reviewer_agent,
+            scene_fala=scene_fala,
+            status_callback=status_callback
+        )
+
+        # Extrai preview frame se o vídeo existe
+        if success and os.path.exists(final_path):
+            try:
+                cmd = [
+                    self.ffmpeg_bin, "-y",
+                    "-ss", str(min(1.0, max(0.2, target_duration / 2))),
+                    "-i", final_path,
+                    "-vframes", "1",
+                    "-q:v", "2",
+                    preview_frame
+                ]
+                subprocess.run(cmd, check=True, capture_output=True, timeout=10)
+            except Exception as e:
+                app_logger.warning(f"[BRollEngine] Não foi possível extrair preview_frame ({e})")
+
+        return {
+            "success": success,
+            "file": final_path if success else "",
+            "video_file": final_path if success else "",
+            "preview_frame": preview_frame if os.path.exists(preview_frame) else "",
+            "video_id": vid_id,
+            "video_title": vid_title,
+            "inspection": inspection,
+            "duration": target_duration
+        }
+
     def process_all_scenes_parallel(
+
         self,
         cenas: List[Dict[str, Any]],
         global_topic: str,
