@@ -110,23 +110,43 @@ def is_pid_running(pid: int) -> bool:
 def is_generator_running() -> Tuple[bool, Optional[int], str]:
     """
     Verifica de forma ultra-confiável se o gerador (auto_pipeline.py) já está ativo.
-    Testa o bloqueio de arquivo (lock do SO) e o PID registrado.
+    Testa processos do SO via psutil, bloqueio de arquivo (lock do SO) e o PID registrado.
     Retorna (is_running, pid, reason).
     """
+    my_pid = os.getpid()
+
+    # 1. Varredura direta dos processos em execução no SO via psutil
+    try:
+        import psutil
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                pid = proc.info.get('pid')
+                if pid == my_pid:
+                    continue
+                cmdline = " ".join(proc.info.get('cmdline') or []).lower()
+                if "auto_pipeline.py" in cmdline:
+                    return True, pid, f"Instância ativa detectada no SO (PID: {pid})"
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    except Exception:
+        pass
+
     if not os.path.exists(LOCK_FILE):
         return False, None, "Arquivo de lock inexistente"
 
-    # Tenta ler o PID do arquivo de lock
+    # 2. Tenta ler o PID do arquivo de lock
     recorded_pid = None
     try:
         with open(LOCK_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
             if content.isdigit():
                 recorded_pid = int(content)
+                if is_pid_running(recorded_pid):
+                    return True, recorded_pid, f"Instância ativa detectada pelo PID do lockfile ({recorded_pid})"
     except Exception:
         pass
 
-    # Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
+    # 3. Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
     if sys.platform == "win32":
         import msvcrt
         test_handle = None
@@ -166,6 +186,7 @@ def is_generator_running() -> Tuple[bool, Optional[int], str]:
                 except Exception:
                     pass
             return True, recorded_pid, f"Instância ativa detectada (PID: {recorded_pid})"
+
 
 
 def find_python_executable() -> str:

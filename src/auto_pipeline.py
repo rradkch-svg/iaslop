@@ -80,6 +80,79 @@ except ImportError:
 
 
 
+# Lock do SO e sincronização com Watchdog
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOCK_FILE = os.path.join(PROJECT_ROOT, "checkpoint", ".pipeline.lock")
+PIPELINE_LOCK_HANDLE = None
+
+def acquire_pipeline_lock() -> bool:
+    global PIPELINE_LOCK_HANDLE
+    lock_dir = os.path.dirname(LOCK_FILE)
+    os.makedirs(lock_dir, exist_ok=True)
+    
+    # 1. Checa se outro processo python já está rodando auto_pipeline.py no SO
+    my_pid = os.getpid()
+    try:
+        import psutil
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                pid = proc.info.get('pid')
+                if pid == my_pid:
+                    continue
+                cmdline = " ".join(proc.info.get('cmdline') or []).lower()
+                if "auto_pipeline.py" in cmdline:
+                    app_logger.warning(f"[AutoPipeline] Outra instância ativa detectada (PID {pid}).")
+                    return False
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    except Exception:
+        pass
+
+    try:
+        PIPELINE_LOCK_HANDLE = open(LOCK_FILE, "a+", encoding="utf-8")
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(PIPELINE_LOCK_HANDLE.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(PIPELINE_LOCK_HANDLE.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        
+        PIPELINE_LOCK_HANDLE.seek(0)
+        PIPELINE_LOCK_HANDLE.truncate()
+        PIPELINE_LOCK_HANDLE.write(str(my_pid))
+        PIPELINE_LOCK_HANDLE.flush()
+        return True
+    except Exception as e:
+        app_logger.warning(f"[AutoPipeline] Não foi possível obter trava exclusiva do lockfile: {e}")
+        return False
+
+def release_pipeline_lock():
+    global PIPELINE_LOCK_HANDLE
+    if PIPELINE_LOCK_HANDLE:
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+                try:
+                    PIPELINE_LOCK_HANDLE.seek(0)
+                    msvcrt.locking(PIPELINE_LOCK_HANDLE.fileno(), msvcrt.LK_UNLCK, 1)
+                except Exception:
+                    pass
+            else:
+                import fcntl
+                try:
+                    fcntl.flock(PIPELINE_LOCK_HANDLE.fileno(), fcntl.LOCK_UN)
+                except Exception:
+                    pass
+            PIPELINE_LOCK_HANDLE.close()
+        except Exception:
+            pass
+        PIPELINE_LOCK_HANDLE = None
+    if os.path.exists(LOCK_FILE):
+        try:
+            os.remove(LOCK_FILE)
+        except Exception:
+            pass
+
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
 RUNNING = True
 
@@ -91,6 +164,7 @@ def handle_sigint(signum, frame):
         RUNNING = False
     else:
         print("\nForçando encerramento imediato...")
+        release_pipeline_lock()
         sys.exit(1)
 
 signal.signal(signal.SIGINT, handle_sigint)
@@ -100,6 +174,7 @@ except Exception:
     pass
 
 class AutoPipelineRunner:
+
     """
     Orquestrador Autônomo e Resiliente de Produção de Vídeos em Lote (9:16 Vertical).
     Garante:
@@ -625,13 +700,24 @@ def main():
     parser.add_argument("--max-batches", type=int, default=10, help="Máximo de batches a processar")
     args = parser.parse_args()
 
-    runner = AutoPipelineRunner(
-        voice=args.voice,
-        rate=args.rate,
-        pitch=args.pitch,
-        model_name=args.model
-    )
-    runner.run_loop(start_batch=args.batch, max_batches=args.max_batches)
+    if not acquire_pipeline_lock():
+        print("\n⚠️ AVISO: Uma instância do gerador (auto_pipeline.py) já está ativa neste computador!")
+        print("🔒 Esta janela será encerrada para evitar duplicações e concorrência no pipeline.\n")
+        sys.exit(0)
+
+    atexit.register(release_pipeline_lock)
+
+    try:
+        runner = AutoPipelineRunner(
+            voice=args.voice,
+            rate=args.rate,
+            pitch=args.pitch,
+            model_name=args.model
+        )
+        runner.run_loop(start_batch=args.batch, max_batches=args.max_batches)
+    finally:
+        release_pipeline_lock()
 
 if __name__ == "__main__":
     main()
+
