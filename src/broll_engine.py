@@ -336,7 +336,8 @@ class BRollEngine:
                     temp_cut_clip = os.path.join(tempfile.gettempdir(), f"broll_cut_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
 
                     ydl_opts_download = {
-                        "format": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best",
+                        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best",
+                        "merge_output_format": "mp4",
                         "outtmpl": temp_raw_file,
                         "quiet": True,
                         "no_warnings": True,
