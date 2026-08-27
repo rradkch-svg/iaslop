@@ -101,11 +101,42 @@ def resolve_gemini_api_key(explicit_key: Optional[str] = None) -> str:
 
 def get_genai_client(api_key: Optional[str] = None) -> genai.Client:
     """Cria e retorna uma instância do cliente oficial google-genai."""
-    key = resolve_gemini_api_key(api_key)
-    if key:
-        os.environ["GEMINI_API_KEY"] = key
+    key = api_key.strip() if (api_key and api_key.strip()) else resolve_gemini_api_key()
+    if key and key != "sua_chave_gemini_aqui":
         return genai.Client(api_key=key)
     return genai.Client()
+
+def validate_gemini_api_connection(api_key: Optional[str] = None, model_name: str = "gemini-flash-lite-latest") -> Tuple[bool, str]:
+    """
+    Valida a conectividade e autenticação com a API Gemini antes de iniciar o pipeline.
+    Retorna (sucesso: bool, mensagem: str).
+    """
+    if api_key is not None:
+        key = api_key.strip()
+    else:
+        key = resolve_gemini_api_key()
+
+    if not key or key == "sua_chave_gemini_aqui":
+        return False, "Chave de API do Gemini não configurada. Defina GEMINI_API_KEY no arquivo .env ou nas variáveis de ambiente."
+    try:
+        client = genai.Client(api_key=key)
+        config = types.GenerateContentConfig(
+            max_output_tokens=5,
+            http_options=types.HttpOptions(timeout=15000)
+        )
+        resp = client.models.generate_content(
+            model=model_name,
+            contents="ping",
+            config=config
+        )
+        if resp and resp.text:
+            return True, f"Conexão com a API Gemini validada com sucesso (modelo: {model_name})."
+        return False, "Resposta vazia retornada pela API Gemini durante o teste de pré-voo."
+    except Exception as e:
+        err_msg = str(e)
+        return False, f"Falha na validação da API Gemini: {err_msg}"
+
+
 
 class GeminiRateLimiter:
     """Controle de vazão thread-safe para impedir que chamadas paralelas ultrapassem o teto de 14 RPM do Gemini Free Tier."""
@@ -464,13 +495,11 @@ class ProposerAgent:
                 return parsed
             elif isinstance(parsed, dict) and "temas" in parsed and isinstance(parsed["temas"], list):
                 return parsed["temas"]
+            raise Exception("Resposta da IA não continha uma lista válida de temas.")
         except Exception as e:
-            app_logger.warning(f"[ProposerAgent] Exceção na geração via LLM ({str(e)}). Acionando banco de temas de contingência...")
+            app_logger.error(f"[ProposerAgent] Falha na geração de temas via IA: {str(e)}")
+            raise e
 
-        # Fallback resiliente garantido para Minuto Inexplicável
-        shuffled = list(FALLBACK_INEXPLICABLE_TOPICS)
-        random.shuffle(shuffled)
-        return shuffled[:count]
 
 class EvaluatorAgent:
     """
@@ -656,52 +685,11 @@ class DirectorAgent:
                 cenas = data
         except Exception as e:
             app_logger.error(f"[DirectorAgent] Erro ao obter/decodificar storyboard por IA: {str(e)}")
+            raise e
 
         if not cenas or len(cenas) < 4:
-            app_logger.info(f"[DirectorAgent] Construindo storyboard robusto de 12 cenas para '{raw_topic}'...")
-            hook = tema.get("hook", "Um dos maiores segredos desclassificados da história permaneceu oculto por décadas.")
-            tech = tema.get("explicacao_tecnica", "Documentos históricos e relatórios de expedições comprovaram a existência desta anomalia.")
-            
-            # Divide a narrativa em 12 cenas com frases de alto impacto e queries direcionadas
-            query_templates = [
-                f"{core_entity} documentary footage 4k",
-                f"{core_entity} real archival footage",
-                f"{core_entity} secret base satellite view 4k",
-                f"{core_entity} expedition historical photos",
-                f"{core_entity} underground exploration 4k",
-                f"{core_entity} classified documents declassified",
-                f"{core_entity} deep exploration footage 4k",
-                f"{core_entity} mysterious phenomenon documentary",
-                f"{core_entity} investigation archive footage",
-                f"{core_entity} aerial drone view 4k",
-                f"{core_entity} expedition team real footage",
-                f"{core_entity} mystery evidence 4k"
-            ]
-            
-            script_slices = [
-                hook,
-                f"Por décadas, autoridades governamentais e militares mantiveram sigilo absoluto sobre {core_entity}.",
-                f"Registros confidenciais revelaram detalhes impressionantes sobre o que realmente acontecia no local.",
-                tech[:100] if len(tech) >= 50 else f"A magnitude das descobertas em {core_entity} desafiou as explicações científicas da época.",
-                tech[100:200] if len(tech) >= 150 else f"Expedições e equipes de pesquisa registraram dados que continuam sem resposta definitiva.",
-                f"Imagens de satélite e arquivos de arquivo comprovam a existência de estruturas impressionantes.",
-                f"Testemunhas e pesquisadores independentes documentaram anomalias inexplicáveis na região.",
-                f"Apesar das tentativas oficiais de arquivamento, novas evidências continuam vindo à tona.",
-                f"A física e a geologia do local apresentam padrões que intrigam especialistas no mundo todo.",
-                f"Até hoje, grande parte dos documentos originais permanece sob classificação de segurança máxima.",
-                f"O que foi encontrado em {core_entity} pode mudar tudo o que sabemos sobre a nossa história.",
-                f"Você acredita que a verdade sobre {core_entity} foi totalmente revelada? Deixe sua teoria nos comentários."
-            ]
-            
-            cenas = []
-            for s_idx, (fala_text, q_text) in enumerate(zip(script_slices, query_templates)):
-                cenas.append({
-                    "scene_id": s_idx + 1,
-                    "tipo": "broll",
-                    "fala": fala_text,
-                    "youtube_query": q_text,
-                    "duracao_estimada": round(5.0 + (s_idx % 3) * 0.5, 1)
-                })
+            raise Exception(f"Storyboard retornado por IA inválido ou com menos de 4 cenas (cenas={len(cenas) if cenas else 0}).")
+
 
         core_words = [w.lower() for w in core_entity.split() if len(w) > 2]
         sanitized_cenas = []

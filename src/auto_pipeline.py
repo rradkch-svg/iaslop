@@ -36,6 +36,7 @@ try:
         ReviewerAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
+        validate_gemini_api_connection,
         save_video_metadata_file
     )
     from .audio import AudioEngine, FALLBACK_VOICES
@@ -52,12 +53,14 @@ except ImportError:
         ReviewerAgent,
         DEFAULT_FALLBACK_MODELS,
         resolve_gemini_api_key,
+        validate_gemini_api_connection,
         save_video_metadata_file
     )
     from audio import AudioEngine, FALLBACK_VOICES
     from broll_engine import BRollEngine, find_ffmpeg_binary
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
+
 
 # Flag de encerramento gracioso (Ctrl+C / SIGINT)
 RUNNING = True
@@ -265,17 +268,18 @@ class AutoPipelineRunner:
                             if selected_topic:
                                 break
                     except Exception as e:
-                        app_logger.warning(f"[AutoPipeline] Erro ao propor tema (tentativa {attempt+1}): {str(e)}")
-                        time.sleep(2)
+                        app_logger.warning(f"[AutoPipeline] Erro ao propor tema (tentativa {attempt+1}/{max_topic_attempts}): {str(e)}")
+                        print(f"    ⚠️ Tentativa {attempt+1}/{max_topic_attempts} de gerar tema falhou: {str(e)}")
+                        time.sleep(3)
 
                 if not selected_topic:
-                    # Fallback de emergência com tema dinâmico garantido
-                    time_id = int(time.time()) % 10000
-                    selected_topic = {
-                        "tema": f"Minuto Inexplicável: O Mistério Oculto #{time_id} 🔮",
-                        "hook": "Você conhece a verdade por trás deste mistério inexplicável?",
-                        "explicacao_tecnica": "Documentos desclassificados e relatórios de expedições revelaram dados impressionantes sobre este evento."
-                    }
+                    err_msg = "Não foi possível gerar um tema inédito via IA após múltiplas tentativas. Pausando sem gerar conteúdo genérico."
+                    print(f"  ❌ {err_msg}")
+                    app_logger.error(f"[AutoPipeline] {err_msg}")
+                    ckpt["error"] = err_msg
+                    self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    return False
+
 
                 print(f"  🎯 TEMA APROVADO: \"{selected_topic.get('tema')}\"")
                 ckpt["topic"] = selected_topic
@@ -459,7 +463,22 @@ class AutoPipelineRunner:
         self.print_banner()
         self.show_status()
 
+        # Validação obrigatória de Pré-Voo com a API Gemini
+        print("\n🔍 [Pré-Voo] Validando conectividade e autenticação com a API Gemini...")
+        valid_api, api_msg = validate_gemini_api_connection(model_name=self.model_name)
+        if not valid_api:
+            print("\n" + "=" * 75)
+            print("❌ ERRO CRÍTICO DE PRÉ-VOO: Chave Gemini não configurada ou inválida!")
+            print(f"   Detalhe: {api_msg}")
+            print("   💡 Ação: Configure sua chave GEMINI_API_KEY no arquivo .env ou no sistema.")
+            print("   O pipeline foi interrompido com segurança para impedir a geração de vídeos genéricos.")
+            print("=" * 75 + "\n")
+            app_logger.critical(f"[AutoPipeline] Pré-voo falhou: {api_msg}")
+            return
+
+        print(f"  ✅ [Pré-Voo] {api_msg}")
         print("\n🚀 Iniciando motor de processamento autônomo contínuo...")
+
         
         while RUNNING:
             batch_idx, video_idx, b_name, v_name = self.checkpoint_mgr.get_next_work_target()
