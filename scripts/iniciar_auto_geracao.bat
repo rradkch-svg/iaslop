@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 title Minuto Inexplicavel Studio - Modo Geracao Automatica (Batches de 10 Videos)
 
 echo =======================================================================
@@ -20,19 +20,19 @@ echo [*] Detectando ambiente Python 3.11+...
 set "PY_CMD="
 
 py -3.11 -c "import google.genai, edge_tts, yt_dlp, PIL" >nul 2>&1
-if !errorlevel! equ 0 (
+if "%ERRORLEVEL%"=="0" (
     set "PY_CMD=py -3.11"
     goto found_python
 )
 
 py -c "import google.genai, edge_tts, yt_dlp, PIL" >nul 2>&1
-if !errorlevel! equ 0 (
+if "%ERRORLEVEL%"=="0" (
     set "PY_CMD=py"
     goto found_python
 )
 
 python -c "import google.genai, edge_tts, yt_dlp, PIL" >nul 2>&1
-if !errorlevel! equ 0 (
+if "%ERRORLEVEL%"=="0" (
     set "PY_CMD=python"
     goto found_python
 )
@@ -54,10 +54,11 @@ echo [*] Blacklist de temas ativada para impedir repeticoes.
 echo.
 
 %PY_CMD% src\auto_pipeline.py %*
+set "EXIT_CODE=%ERRORLEVEL%"
 
-if !errorlevel! neq 0 (
+if not "%EXIT_CODE%"=="0" (
     echo.
-    echo [AVISO] O processo encerrou com codigo (!errorlevel!).
+    echo [AVISO] O processo encerrou com codigo %EXIT_CODE%.
     echo Verifique os logs detalhados em .\logs\latest.log
     pause
 )

@@ -109,67 +109,40 @@ def is_pid_running(pid: int) -> bool:
 
 def is_generator_running() -> Tuple[bool, Optional[int], str]:
     """
-    Verifica de forma ultra-confiável se o gerador (auto_pipeline.py) já está ativo.
-    Testa processos do SO via psutil, bloqueio de arquivo (lock do SO) e o PID registrado.
+    Verifica de forma ultra-confiável se o gerador (auto_pipeline.py) já está ativo
+    testando o bloqueio exclusivo de arquivo a nível de kernel do SO.
     Retorna (is_running, pid, reason).
     """
-    my_pid = os.getpid()
-
-    # 1. Varredura direta dos processos em execução no SO via psutil
-    try:
-        import psutil
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                pid = proc.info.get('pid')
-                if pid == my_pid:
-                    continue
-                cmdline = " ".join(proc.info.get('cmdline') or []).lower()
-                if "auto_pipeline.py" in cmdline:
-                    return True, pid, f"Instância ativa detectada no SO (PID: {pid})"
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
-    except Exception:
-        pass
-
     if not os.path.exists(LOCK_FILE):
         return False, None, "Arquivo de lock inexistente"
 
-    # 2. Tenta ler o PID do arquivo de lock
     recorded_pid = None
     try:
         with open(LOCK_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
             if content.isdigit():
                 recorded_pid = int(content)
-                if is_pid_running(recorded_pid):
-                    return True, recorded_pid, f"Instância ativa detectada pelo PID do lockfile ({recorded_pid})"
     except Exception:
         pass
 
-    # 3. Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
+    # Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
     if sys.platform == "win32":
         import msvcrt
         test_handle = None
         try:
             test_handle = open(LOCK_FILE, "a+")
             test_handle.seek(0)
-            # Tenta aplicar trava de 1 byte sem bloquear
             msvcrt.locking(test_handle.fileno(), msvcrt.LK_NBLCK, 1)
-            # Se conseguiu travar, significa que nenhuma outra instância segura a trava
             msvcrt.locking(test_handle.fileno(), msvcrt.LK_UNLCK, 1)
             test_handle.close()
-            # Se havia um PID registrado mas a trava estava livre, checa se o processo morreu
-            if recorded_pid and not is_pid_running(recorded_pid):
-                return False, recorded_pid, f"Processo anterior (PID {recorded_pid}) encerrou; lock livre"
             return False, recorded_pid, "Lock livre (nenhum processo retém trava do SO)"
         except (IOError, OSError, PermissionError):
-            # Não conseguiu travar porque outro processo ativo está segurando a trava
             if test_handle:
                 try:
                     test_handle.close()
                 except Exception:
                     pass
-            return True, recorded_pid, f"Instância ativa detectada com lock do SO (PID: {recorded_pid})"
+            return True, recorded_pid, f"Instância ativa detectada com lock exclusivo do SO (PID: {recorded_pid})"
     else:
         import fcntl
         test_handle = None
@@ -186,6 +159,7 @@ def is_generator_running() -> Tuple[bool, Optional[int], str]:
                 except Exception:
                     pass
             return True, recorded_pid, f"Instância ativa detectada (PID: {recorded_pid})"
+
 
 
 

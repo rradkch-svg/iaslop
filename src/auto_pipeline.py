@@ -89,24 +89,7 @@ def acquire_pipeline_lock() -> bool:
     global PIPELINE_LOCK_HANDLE
     lock_dir = os.path.dirname(LOCK_FILE)
     os.makedirs(lock_dir, exist_ok=True)
-    
-    # 1. Checa se outro processo python já está rodando auto_pipeline.py no SO
     my_pid = os.getpid()
-    try:
-        import psutil
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                pid = proc.info.get('pid')
-                if pid == my_pid:
-                    continue
-                cmdline = " ".join(proc.info.get('cmdline') or []).lower()
-                if "auto_pipeline.py" in cmdline:
-                    app_logger.warning(f"[AutoPipeline] Outra instância ativa detectada (PID {pid}).")
-                    return False
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
-    except Exception:
-        pass
 
     try:
         PIPELINE_LOCK_HANDLE = open(LOCK_FILE, "a+", encoding="utf-8")
@@ -122,9 +105,16 @@ def acquire_pipeline_lock() -> bool:
         PIPELINE_LOCK_HANDLE.write(str(my_pid))
         PIPELINE_LOCK_HANDLE.flush()
         return True
-    except Exception as e:
-        app_logger.warning(f"[AutoPipeline] Não foi possível obter trava exclusiva do lockfile: {e}")
+    except (IOError, OSError, PermissionError) as e:
+        app_logger.warning(f"[AutoPipeline] Outra instância ativa já detém o lock exclusivo: {e}")
+        if PIPELINE_LOCK_HANDLE:
+            try:
+                PIPELINE_LOCK_HANDLE.close()
+            except Exception:
+                pass
+            PIPELINE_LOCK_HANDLE = None
         return False
+
 
 def release_pipeline_lock():
     global PIPELINE_LOCK_HANDLE
@@ -694,8 +684,9 @@ def main():
     parser = argparse.ArgumentParser(description="AutoPipeline Minuto Inexplicável 9:16")
     parser.add_argument("--batch", type=int, default=None, help="Batch específico para executar")
     parser.add_argument("--voice", type=str, default="pt-BR-AntonioNeural", help="Voz Neural do Edge-TTS")
-    parser.add_argument("--rate", type=str, default="+25%", help="Taxa de velocidade do áudio (ex: +25%)")
-    parser.add_argument("--pitch", type=str, default="+0Hz", help="Tom vocal (ex: +3Hz)")
+    parser.add_argument("--rate", type=str, default="+25%", help="Taxa de velocidade do áudio (ex: +25%%)")
+    parser.add_argument("--pitch", type=str, default="+0Hz", help="Tom vocal (ex: +0Hz)")
+
     parser.add_argument("--model", type=str, default="gemini-flash-lite-latest", help="Modelo LLM")
     parser.add_argument("--max-batches", type=int, default=10, help="Máximo de batches a processar")
     args = parser.parse_args()
