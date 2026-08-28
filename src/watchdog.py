@@ -107,30 +107,60 @@ def is_pid_running(pid: int) -> bool:
             return False
 
 
+def find_running_pipeline_pid() -> Optional[int]:
+    """Busca processos ativos do sistema rodando auto_pipeline.py."""
+    if sys.platform == "win32":
+        try:
+            cmd = ["powershell", "-NoProfile", "-Command", 
+                   "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*auto_pipeline*' } | Select-Object -ExpandProperty ProcessId"]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=4)
+            for line in res.stdout.strip().splitlines():
+                line = line.strip()
+                if line.isdigit() and int(line) != os.getpid():
+                    return int(line)
+        except Exception:
+            pass
+    return None
+
+
 def is_generator_running() -> Tuple[bool, Optional[int], str]:
     """
     Verifica de forma ultra-confiável se o gerador (auto_pipeline.py) já está ativo
-    testando o bloqueio exclusivo de arquivo a nível de kernel do SO.
+    testando processo no SO, bloqueio exclusivo de arquivo e PID liveness.
     Retorna (is_running, pid, reason).
     """
+    # 1. Verificação direta de processos do SO
+    active_pid = find_running_pipeline_pid()
+    if active_pid and is_pid_running(active_pid):
+        return True, active_pid, f"Processo do gerador ativo detectado no sistema operacional (PID: {active_pid})"
+
     if not os.path.exists(LOCK_FILE):
         return False, None, "Arquivo de lock inexistente"
 
     recorded_pid = None
+    lock_file_locked = False
     try:
         with open(LOCK_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
             if content.isdigit():
                 recorded_pid = int(content)
-    except Exception:
-        pass
+    except (IOError, OSError, PermissionError):
+        # Se não consegue abrir para leitura, o SO está bloqueando com lock exclusivo
+        lock_file_locked = True
 
-    # Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
+    # 2. Se o PID gravado ainda está vivo no SO
+    if recorded_pid and is_pid_running(recorded_pid):
+        return True, recorded_pid, f"Instância ativa detectada com PID registrado vivo no SO (PID: {recorded_pid})"
+
+    if lock_file_locked:
+        return True, recorded_pid, "Instância ativa detectada com arquivo de lock retido pelo SO"
+
+    # 3. Testa se o arquivo está bloqueado pelo msvcrt (Windows) ou fcntl (Linux)
     if sys.platform == "win32":
         import msvcrt
         test_handle = None
         try:
-            test_handle = open(LOCK_FILE, "a+")
+            test_handle = open(LOCK_FILE, "r+b")
             test_handle.seek(0)
             msvcrt.locking(test_handle.fileno(), msvcrt.LK_NBLCK, 1)
             msvcrt.locking(test_handle.fileno(), msvcrt.LK_UNLCK, 1)

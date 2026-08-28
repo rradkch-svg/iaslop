@@ -92,7 +92,12 @@ def acquire_pipeline_lock() -> bool:
     my_pid = os.getpid()
 
     try:
-        PIPELINE_LOCK_HANDLE = open(LOCK_FILE, "a+", encoding="utf-8")
+        if not os.path.exists(LOCK_FILE):
+            with open(LOCK_FILE, "w", encoding="utf-8") as f:
+                f.write(str(my_pid))
+
+        PIPELINE_LOCK_HANDLE = open(LOCK_FILE, "r+b")
+        PIPELINE_LOCK_HANDLE.seek(0)
         if sys.platform == "win32":
             import msvcrt
             msvcrt.locking(PIPELINE_LOCK_HANDLE.fileno(), msvcrt.LK_NBLCK, 1)
@@ -101,8 +106,8 @@ def acquire_pipeline_lock() -> bool:
             fcntl.flock(PIPELINE_LOCK_HANDLE.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         
         PIPELINE_LOCK_HANDLE.seek(0)
+        PIPELINE_LOCK_HANDLE.write(str(my_pid).encode("utf-8"))
         PIPELINE_LOCK_HANDLE.truncate()
-        PIPELINE_LOCK_HANDLE.write(str(my_pid))
         PIPELINE_LOCK_HANDLE.flush()
         return True
     except (IOError, OSError, PermissionError) as e:
