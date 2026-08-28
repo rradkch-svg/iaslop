@@ -134,21 +134,26 @@ def assemble_multi_scene_video(
             status_callback("🎨 Renderizando Composição Master (Vídeo HD + Voz + BGM Ducked + SFX + Legendas ASS)...")
 
         # Montagem dinâmica do comando FFmpeg
+        # input 0 = combined_scenes_mp4 (video), input 1 = actual_audio (voice)
         cmd_inputs = [ffmpeg_bin, "-y", "-i", combined_scenes_mp4, "-i", actual_audio]
+        current_input_idx = 2
+
         filter_complex_parts = [f"[1:a]volume=1.0[voice]"]
         audio_mix_inputs = ["[voice]"]
 
         # Entrada 2: BGM
         if has_bgm:
             cmd_inputs.extend(["-i", chosen_bgm])
-            bgm_in_idx = len(cmd_inputs) - 2 # Índice de entrada
+            bgm_in_idx = current_input_idx
+            current_input_idx += 1
             filter_complex_parts.append(f"[{bgm_in_idx}:a]aloop=loop=-1:size=2e+09,volume={bgm_volume:.3f},afade=t=in:ss=0:d=1.0[bgm]")
             audio_mix_inputs.append("[bgm]")
 
         # Entrada 3: SFX
         if has_sfx:
             cmd_inputs.extend(["-i", sfx_path])
-            sfx_in_idx = len(cmd_inputs) - 2 # Índice de entrada
+            sfx_in_idx = current_input_idx
+            current_input_idx += 1
             filter_complex_parts.append(f"[{sfx_in_idx}:a]volume={sfx_volume:.3f}[sfx]")
             audio_mix_inputs.append("[sfx]")
 
