@@ -6,6 +6,7 @@ e equalização de contraste cinematográfico para vídeos de mistério e docume
 """
 
 import os
+import re
 import subprocess
 import glob
 from typing import Tuple, Optional, List, Dict, Any
@@ -78,10 +79,20 @@ class VideoResolutionEnhancer:
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10)
             parts = res.stdout.strip().split("x")
-            if len(parts) == 2:
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
                 return int(parts[0]), int(parts[1])
         except Exception:
             pass
+
+        # Fallback usando ffmpeg -i caso ffprobe não esteja no PATH
+        try:
+            res = subprocess.run([self.ffmpeg_bin, "-i", video_path], capture_output=True, text=True, timeout=10)
+            match = re.search(r"Stream #.*Video:.*,\s*(\d{2,5})x(\d{2,5})", res.stderr)
+            if match:
+                return int(match.group(1)), int(match.group(2))
+        except Exception:
+            pass
+
         return 0, 0
 
     def is_acceptable_resolution(self, video_path: str, min_height: int = 480) -> Tuple[bool, int, int]:
