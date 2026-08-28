@@ -35,7 +35,6 @@ try:
     )
     from .audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
     from .broll_engine import BRollEngine
-    from .visual_engine import VisualEngine
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
     from .checkpoint_manager import CheckpointManager
@@ -69,7 +68,6 @@ except ImportError:
     )
     from audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
     from broll_engine import BRollEngine
-    from visual_engine import VisualEngine
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
     from checkpoint_manager import CheckpointManager

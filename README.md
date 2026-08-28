@@ -33,7 +33,6 @@ automotive-slop/
 │   ├── logger.py                # Logging estruturado e detecção de throttling
 │   ├── render.py                # Montagem e renderização final com FFmpeg
 │   ├── subtitles.py             # Legendas ASS dinâmicas estilo Hormozi (Pill Box)
-│   ├── visual_engine.py         # Motor de cartões e infográficos visuais 1080x1920
 │   └── watchdog.py              # Supervisor de auto-restart e resiliência
 │
 ├── scripts/                     # Scripts utilitários, automação e inicializadores

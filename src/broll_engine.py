@@ -15,13 +15,6 @@ try:
 except ImportError:
     from logger import app_logger, LogSpan, record_throttling
 
-try:
-    from .visual_engine import VisualEngine
-except ImportError:
-    try:
-        from visual_engine import VisualEngine
-    except ImportError:
-        VisualEngine = None
 
 def find_deno_binary() -> Optional[str]:
     """Localiza o interpretador JavaScript Deno para resolver desafios de n-sig do YouTube."""
@@ -498,41 +491,8 @@ class BRollEngine:
                                 pass
                         continue
 
-            app_logger.warning(f"[BRollEngine] Nenhum clipe do YouTube aprovado para '{query}'. Ativando contingência de Card Visual...")
-            if VisualEngine is not None:
-                safe_status(status_callback, "🎨 Gerando Card Visual Dossiê Confidencial (Contingência)...")
-                try:
-                    visual_engine = VisualEngine()
-                    clean_query = query.replace("documentary", "").replace("footage", "").replace("4k", "").replace("real", "").strip()
-                    card_data = {
-                        "titulo": global_topic[:40],
-                        "subtitulo": clean_query[:50] if clean_query else global_topic[:50],
-                        "fatos": [
-                            scene_fala[:95] if scene_fala else "Registro confidencial de estudo e evidências de arquivo histórico.",
-                            "Análise de dados topográficos, imagens de satélite e documentos desclassificados.",
-                            "Classificação: DOCUMENTO CONFIDENCIAL / CASO EM INVESTIGAÇÃO"
-                        ],
-                        "metrica": "NÍVEL DE SIGILO",
-                        "valor_metrica": "GRAU MÁXIMO"
-                    }
-                    success_vis = visual_engine.create_clip(
-                        card_data=card_data,
-                        duration=target_duration,
-                        output_clip_path=output_clip_path,
-                        status_callback=status_callback
-                    )
-                    if success_vis and os.path.exists(output_clip_path):
-                        return True, output_clip_path, "visual_dossier", f"Dossiê Confidencial - {query}", {
-                            "aprovado": True,
-                            "descartar_video_inteiro": False,
-                            "score": 8.5,
-                            "motivo": "Card Visual Dossiê gerado com sucesso (Contingência Resiliente)",
-                            "elementos": "Infográfico Investigativo 1080x1920"
-                        }
-                except Exception as e_vis:
-                    app_logger.error(f"[BRollEngine] Erro ao gerar Card Visual de contingência: {str(e_vis)}")
-
-            return False, "", "", "", {"aprovado": False, "motivo": "Nenhum trecho aprovado"}
+            app_logger.warning(f"[BRollEngine] Nenhum clipe de vídeo do YouTube aprovado para '{query}'.")
+            return False, "", "", "", {"aprovado": False, "motivo": f"Nenhum clipe de vídeo do YouTube aprovado para '{query}'"}
 
     def fetch_scene_broll(
         self,

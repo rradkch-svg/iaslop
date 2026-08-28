@@ -531,26 +531,39 @@ class AutoPipelineRunner:
                 cenas = ckpt.get("storyboard", [])
                 scenes_media = ckpt.get("scenes_media", {})
                 
-                # Monta a lista ordenada de segmentos de vídeo para cada cena
+                # Monta a lista ordenada de segmentos de vídeo para cada cena (100% vídeos reais baixados)
                 media_list = []
+                available_video_files = []
+                for idx, c in enumerate(cenas):
+                    sc_id = str(c.get("scene_id", idx + 1))
+                    m_data = scenes_media.get(sc_id, {})
+                    v_file = m_data.get("video_file")
+                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0:
+                        available_video_files.append(v_file)
+
                 for idx, c in enumerate(cenas):
                     sc_id = str(c.get("scene_id", idx + 1))
                     m_data = scenes_media.get(sc_id, {})
                     v_file = m_data.get("video_file")
                     dur = float(c.get("duracao_estimada", 5.0))
-                    if v_file and os.path.exists(v_file):
+                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0:
                         media_list.append({
                             "type": "video",
                             "file": v_file,
                             "duration": dur,
                             "is_fallback": m_data.get("is_fallback", False)
                         })
-                    else:
+                    elif available_video_files:
+                        # Reutiliza vídeo real baixado existente para garantir que nenhum frame sintético seja gerado
+                        fallback_file = available_video_files[idx % len(available_video_files)]
                         media_list.append({
-                            "type": "color_placeholder",
-                            "text": c.get("fala", ""),
-                            "duration": dur
+                            "type": "video",
+                            "file": fallback_file,
+                            "duration": dur,
+                            "is_fallback": True
                         })
+                    else:
+                        raise Exception(f"Nenhum clipe de vídeo real baixado disponível para a cena {sc_id}")
 
                 try:
                     bgm_track = self.bgm_engine.get_bgm_for_topic(
