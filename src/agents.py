@@ -33,10 +33,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Lista de modelos rápidos e comprovadamente ativos
 DEFAULT_FALLBACK_MODELS = [
-    "gemini-flash-lite-latest",
     "gemini-3.5-flash-lite",
     "gemini-3.6-flash",
-    "gemini-3.1-flash-lite"
+    "gemini-3.5-flash"
 ]
 
 def resolve_gemini_api_keys(explicit_keys: Optional[Any] = None) -> List[str]:
@@ -190,7 +189,7 @@ def get_rate_limiter_for_key(api_key: str, max_rpm: int = 14) -> GeminiRateLimit
             _KEY_RATE_LIMITERS[api_key] = GeminiRateLimiter(max_rpm=max_rpm)
         return _KEY_RATE_LIMITERS[api_key]
 
-def validate_gemini_api_connection(api_key: Optional[str] = None, model_name: str = "gemini-flash-lite-latest") -> Tuple[bool, str]:
+def validate_gemini_api_connection(api_key: Optional[str] = None, model_name: str = "gemini-3.5-flash-lite") -> Tuple[bool, str]:
     """
     Valida a conectividade e autenticação com a API Gemini antes de iniciar o pipeline.
     Retorna (sucesso: bool, mensagem: str).
@@ -238,7 +237,7 @@ def extract_retry_seconds(error_str: str) -> int:
 def generate_with_resilience(
     prompt: str,
     system_instruction: str,
-    model_name: str = "gemini-flash-lite-latest",
+    model_name: str = "gemini-3.5-flash-lite",
     fallback_models: list = None,
     auto_fallback: bool = True,
     auto_cooldown: bool = True,
@@ -303,20 +302,13 @@ def generate_with_resilience(
                         http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000))
                     )
                     
-                    response_stream = client.models.generate_content_stream(
+                    resp = client.models.generate_content(
                         model=current_model,
                         contents=prompt,
                         config=config
                     )
                     
-                    chunks = []
-                    for chunk in response_stream:
-                        if chunk.text:
-                            chunks.append(chunk.text)
-                            if status_callback and len(chunks) % 4 == 0:
-                                status_callback(f"Gerando resposta via **{current_model}** ({sum(len(c) for c in chunks)} caracteres)...")
-
-                    full_text = "".join(chunks).strip()
+                    full_text = resp.text.strip() if resp and resp.text else ""
                     if full_text:
                         # Limpa wrappers markdown json se necessário
                         if response_mime_type == "application/json":
@@ -392,16 +384,47 @@ def generate_with_resilience(
 
 
 POPULAR_INEXPLICABLE_ANGLES = [
-    "Bases Militares Secretas Escavadas Sob o Gelo ou Montanhas",
-    "Projetos Ultrassecretos e Desclassificados da Guerra Fria",
-    "Anomalias Submarinas Profundas e Sinais Acústicos Não Identificados",
-    "Estruturas Arqueológicas Impossíveis e Cidades Subterrâneas",
-    "Sinais de Rádio Espaciais e Anomalias Astronômicas Reais",
-    "Expedições Científicas Árticas que Terminaram em Tragédia Inexplicada",
-    "Experimentos Biológicos e Psicológicos Governamentais Ocultos",
-    "Fenômenos Geológicos e Atmosféricos Anômalos Jamais Replicados",
-    "Fortalezas Subterrâneas e Complexos de Bunkers Abandonados",
-    "Mistérios Náuticos em Águas Internacionais e Navios Fantasmas"
+    "A Base Aérea Subterrânea de Željava (Complexo 505) na Bósnia e seus Túneis na Montanha",
+    "O Enigma do Manuscrito Rohonc e os Símbolos Indecifráveis da Hungria",
+    "O Desaparecimento do Farol de Flannan Isles e os Guardiões Sumidos na Escócia",
+    "A Cidade Subterrânea de Naours na França e suas Centenas de Câmaras Ocultas",
+    "O Incidente do Satélite Militar Vela e a Explosão Nuclear Não Declarada no Oceano Índico",
+    "A Misteriosa Mina de Sal de Turda na Romênia e suas Câmaras Ecoantes Gigantescas",
+    "O Forte Abandonado de Bhangarh na Índia e a Proibição Noturna do Governo",
+    "A Anomalia Gravitacional da Baía de Hudson no Canadá",
+    "O Incidente Aéreo do Voo Flying Tiger 739 Desaparecido no Pacífico Ocidental",
+    "O Mistério das Esferas Megalíticas Perfeitas de Diquís na Costa Rica",
+    "Os Geoglifos Gigantes de Blythe Intaglios no Deserto do Colorado",
+    "A Cidade Submersa Antiga de Shicheng no Lago Qiandao na China",
+    "O Enigma do Disco de Festo e a Escrita Cretense Jamais Decifrada",
+    "O Desastre Limnico do Lago Nyos em 1986 e a Nuvem de Gás Invisível",
+    "A Floresta Torta de Gryfino na Polônia e a Deformação Geométrica das Árvores",
+    "O Mistério Náutico do Navio MV Lyubov Orlova à Deriva no Atlântico Norte",
+    "O Projeto Sealab II da Marinha Americana no Cânion Submarino de La Jolla",
+    "O Enigma das Luzes Fantasmas e Fenômeno Noturno de Hessdalen na Noruega",
+    "A Cidade Fantasma de Centralia e os Incêndios Subterrâneos Perpétuos de Carvão",
+    "O Incidente do Voo Varig RG-967 e as Obras de Arte Valiosas Desaparecidas no Mar",
+    "A Fortaleza Flutuante Abandonada de Fort Roughs e as Fortificações Maunsell",
+    "O Naufrágio e as Tumbas Congeladas da Expedição Franklin e HMS Terror no Ártico",
+    "A Ilha Fantasma de Bermeja no Golfo do México que Simplesmente Desapareceu dos Mapas",
+    "A Estação Polar Fantasma de Vostok e o Lago Subglacial Lacrado há Milhões de Anos",
+    "O Complexo Militar de Fort Douaumont e as Batalhas Subterrâneas de Verdun",
+    "O Mistério das Ruínas de Nan Madol e a Cidade de Basalto Construída Sobre o Mar",
+    "A Cidade Antiga Submersa de Pavlopetri na Grécia",
+    "Os Túneis Secretos da Linha Maginot e as Galerias Militares Profundas",
+    "O Incidente do Submarino USS Scorpion e os Segredos do Fundo do Atlântico",
+    "O Misterioso Forte de Kumbhalgarh e suas Muralhas Gigantescas na Índia",
+    "A Cidade de Sal Subterrânea de Wieliczka na Polônia",
+    "O Enigma Arqueológico das Cavernas de Longyou na China Escavadas em Rocha Maciça",
+    "O Incidente Aéreo de 1978 com o Piloto Frederick Valentich no Estreito de Bass",
+    "A Base Secreta Abandonada de Submarinos de Balaklava na Crimeia",
+    "O Segredo da Ilha de Poveglia na Itália e seus Sanatórios Abandonados",
+    "As Esferas Metálicas de Klerksdorp na África do Sul com Ranhuras Artificiais",
+    "O Mistério do Navio MV Joyita Encontrado à Deriva no Pacífico Sem Tripulação",
+    "A Estrutura Subaquática de Fuxian na China e suas Pirâmides Submersas",
+    "O Incidente de Mantell e a Perseguição Aérea em 1948",
+    "O Enigma da Ilha Sentinel do Norte e a Tribo Isolada da Idade da Pedra",
+    "O Grande Aquífero e Rio Subterrâneo Hamza Sob a Bacia Amazônica"
 ]
 
 class ProposerAgent:
@@ -410,7 +433,7 @@ class ProposerAgent:
     Gera ideias completas e ricas sobre mistérios reais e projetos secretos com título, hook de 3s,
     explicação técnica factual, hashtags virais e descrição completa para o YouTube.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -433,30 +456,33 @@ class ProposerAgent:
     def generate_topics(self, count=10, blacklist: Optional[List[Any]] = None, seed=None, cooldown_callback=None, status_callback=None):
         seed_val = seed if seed is not None else random.randint(100000, 999999)
         time_salt = int(time.time() * 1000) % 100000
-        angles_sample = random.sample(POPULAR_INEXPLICABLE_ANGLES, min(4, len(POPULAR_INEXPLICABLE_ANGLES)))
+        angles_sample = random.sample(POPULAR_INEXPLICABLE_ANGLES, min(5, len(POPULAR_INEXPLICABLE_ANGLES)))
         angles_str = "\n".join([f"- {a}" for a in angles_sample])
 
         blacklist_str = ""
         if blacklist:
+            # Coleta todas as entidades e títulos únicos da blacklist de forma densa e categorizada
+            seen_entries = set()
             formatted_items = []
-            for b in blacklist[-80:]:
+            for b in blacklist:
                 if isinstance(b, dict):
-                    t = b.get("tema") or b.get("core_entity") or str(b)
-                    ent = b.get("core_entity", "")
-                    if ent and ent != t:
-                        formatted_items.append(f"- {t} [Assunto/Local Central: {ent}]")
-                    else:
-                        formatted_items.append(f"- {t}")
+                    t = (b.get("tema") or b.get("core_entity") or "").strip()
+                    ent = (b.get("core_entity") or "").strip()
+                    key = f"{t} ({ent})" if ent and ent != t else t
                 else:
-                    t = str(b).strip()
-                    if t:
-                        formatted_items.append(f"- {t}")
+                    key = str(b).strip()
+                if key and key not in seen_entries:
+                    seen_entries.add(key)
+                    formatted_items.append(f"• {key}")
+
             if formatted_items:
+                # Mostra os itens mais recentes e um resumo consolidado
+                top_items = formatted_items[-150:]
                 blacklist_str = (
-                    f"\n\n[BLACKLIST DE MISTÉRIOS JÁ GRAVADOS - ESTRITAMENTE PROIBIDO REPETIR EM ESSÊNCIA]:\n"
-                    f"{chr(10).join(formatted_items)}\n"
-                    f"ATENÇÃO MÁXIMA: É TERMINANTEMENTE PROIBIDO repetir qualquer um dos mistérios, locais, projetos ou anomalias listados na Blacklist acima, MESMO alterando o título ou o ângulo da narração. "
-                    f"Gere temas 100% INÉDITOS sobre outros segredos e mistérios reais do planeta e do espaço."
+                    f"\n\n[BLACKLIST DE MISTÉRIOS JÁ GRAVADOS NO CANAL - ESTRITAMENTE PROIBIDO REPETIR EM ESSÊNCIA ({len(formatted_items)} MISTÉRIOS REGISTRADOS)]:\n"
+                    f"{chr(10).join(top_items)}\n\n"
+                    f"⚠️ REGRA DE OURO DA BLACKLIST: É TERMINANTEMENTE PROIBIDO propor qualquer um dos mistérios, locais, projetos ou incidentes listados acima (mesmo mudando o título ou o enfoque). "
+                    f"Você DEVE explorar outros mistérios reais, projetos desclassificados, ilhas misteriosas, anomalias geológicas e enigmas históricos menos conhecidos que possuam filmagens documentais no YouTube."
                 )
 
         algo_context = ""
@@ -464,13 +490,13 @@ class ProposerAgent:
             algo_context = f"\n\n{DEFAULT_ALGORITHM_MEMORY.get_prompt_context_for_generation()}\n"
 
         prompt = (
-            f"Gere {count} ideias COMPLETAS e INÉDITAS sobre mistérios reais do mundo para o canal 'Minuto Inexplicável' (vídeos de 60 a 90 segundos).\n\n"
+            f"Gere {count} ideias COMPLETAS e 100% INÉDITAS sobre mistérios reais do mundo para o canal 'Minuto Inexplicável' (vídeos de 60 a 90 segundos).\n\n"
             f"[ENTROPIA & SEED DE DIVERSIDADE]: #{seed_val}-{time_salt}\n"
             f"DIRETRIZES OBRIGATÓRIAS:\n"
-            f"1. PACOTE COMPLETO: Cada ideia DEVE conter 'tema' (Título), 'descricao' (Descrição completa para o YouTube), 'tags' (Hashtags virais), 'hook' (Primeiros 3 segundos) e 'explicacao_tecnica' (Contexto documental).\n"
-            f"2. BASE EM FATOS REAIS E ARQUIVOS: Escolha mistérios que possuam vasto acervo de imagens reais, fotos de arquivo, filmagens de satélite, expedições e documentários no YouTube (ex: Projeto Camp Century Groenlândia, Poço de Kola, Incidente Dyatlov, Fossa das Marianas, Sinal Wow, Cavernas de Derinkuyu, Mar dos Sargaços, Ilha Bouvet, Experimentos da Guerra Fria).\n"
-            f"3. VARIEDADE MÁXIMA: Garanta que as {count} ideias cubram diferentes categorias (bases secretas, anomalias espaciais, expedições árticas, fenômenos oceânicos, arqueologia impossível).\n"
-            f"4. ÂNGULOS DESTAQUE SORTEADOS PARA ESTA RODADA:\n{angles_str}"
+            f"1. PACOTE COMPLETO: Cada ideia DEVE conter 'tema' (Título com emojis pertinentes), 'descricao' (Descrição completa para o YouTube), 'tags' (Hashtags virais), 'hook' (Primeiros 3 segundos) e 'explicacao_tecnica' (Contexto documental).\n"
+            f"2. BASE EM FATOS REAIS E ARQUIVOS: Escolha mistérios que possuam acervo de imagens reais, fotos de arquivo, filmagens de satélite, expedições e documentários no YouTube.\n"
+            f"3. VARIEDADE MÁXIMA: As {count} ideias devem ser de nichos completamente diferentes entre si.\n"
+            f"4. NICHOS SUGERIDOS PARA EXPLORAR NESTA RODADA:\n{angles_str}"
             f"{algo_context}"
             f"{blacklist_str}\n\n"
             f"Responda SEMPRE em JSON puro com a lista de {count} objetos contendo 'tema', 'descricao', 'tags', 'hook' e 'explicacao_tecnica'."
@@ -486,6 +512,7 @@ class ProposerAgent:
                 response_mime_type="application/json",
                 cooldown_callback=cooldown_callback,
                 status_callback=status_callback,
+                timeout_seconds=120.0,
                 api_key=self.api_key
             )
             parsed = json.loads(raw_text)
@@ -505,7 +532,7 @@ class DissertationAgent:
     detalhando dados reais, arquivos desclassificados, medidas quantitativas, física/geologia e evidências,
     atuando como a âncora de verdade factual irrefutável para o Diretor.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -578,7 +605,7 @@ class EvaluatorAgent:
     Agente Avaliador Editorial do 'Minuto Inexplicável'.
     Avalia a pertinência, impacto do hook, retenção estimada e embasamento documental do tema.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -622,7 +649,7 @@ class SemanticAuditorAgent:
     Verifica se um novo candidato trata, em essência, do mesmo mistério, local, evento ou projeto histórico
     já presente na Blacklist, mesmo quando os títulos usam palavras e estruturas completamente distintas.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -791,7 +818,7 @@ class DirectorAgent:
     Destila a dissertação factual monográfica em um roteiro investigativo aprofundado
     (60 a 90 segundos, 150 a 220 palavras faladas) dividido em 12 a 18 cenas dinâmicas com queries de YouTube em INGLÊS.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -879,7 +906,7 @@ class ReviewerAgent:
     Agente Revisor de Mídia e Visão Computacional.
     Audita frames de vídeo baixados do YouTube para garantir altíssima aderência ao tema de mistério.
     """
-    def __init__(self, model_name="gemini-flash-lite-latest", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
+    def __init__(self, model_name="gemini-3.5-flash-lite", auto_fallback=True, auto_cooldown=True, fallback_models=None, api_key=None, *args, **kwargs):
         self.model_name = model_name
         self.auto_fallback = auto_fallback
         self.auto_cooldown = auto_cooldown
@@ -888,23 +915,30 @@ class ReviewerAgent:
         self.api_key = raw_key.strip() if isinstance(raw_key, str) and raw_key.strip() else None
         self.system_instruction = (
             "Você é o Revisor Chefe de Qualidade Visual e Imagens de Arquivo do canal 'Minuto Inexplicável'. "
-            "Sua missão é auditar frames de filmagens baixadas do YouTube para garantir relevância ao mistério, base secreta ou fenômeno estudado.\n"
-            "CRITÉRIOS DE REPROVAÇÃO IMEDIATA (B-Roll lixo):\n"
-            "- Rostos de podcasters, apresentadores de estúdio ou streamers falando para câmera (DEVE SER ZERO FACES DE APRESENTADORES)\n"
-            "- Telas pretas, vinhetas promocionais, animações 3D de baixa qualidade infantil ou logotipos gigantes de canais\n"
-            "- Vídeos fora do contexto do mistério (ex: futebol, gameplays, memes).\n"
-            "CRITÉRIOS DE APROVAÇÃO (B-Roll de ouro):\n"
-            "- Filmagens históricas autênticas, fotos de arquivo em preto e branco, imagens de radar/sonar, satélite, expedições e documentários reais.\n"
-            "Responda SEMPRE em JSON: {'aprovado': true/false, 'nota_relevancia': 0 a 10, 'motivo': '...'}"
+            "Sua missão é auditar rigorosamente frames de filmagens baixadas do YouTube para garantir relevância factual e documental ao mistério ou documentário estudado.\n\n"
+            "CRITÉRIOS DE REPROVAÇÃO IMEDIATA (B-Roll PROIBIDO - NOTA <= 3 / APROVADO=FALSE):\n"
+            "- Desenhos animados, animações 3D, personagens de cinema/anime (ex: Kung Fu Panda, Shrek, Mickey, animes, desenhos infantis).\n"
+            "- Rostos de podcasters, apresentadores de estúdio, streamers ou pessoas falando para a câmera em formato vlog.\n"
+            "- Telas pretas, slides de texto/títulos estáticos, vinhetas promocionais, botões 'inscreva-se', 'deixe o like' ou logotipos de canais.\n"
+            "- Vídeos completamente fora do contexto da cena (ex: gameplay de jogos, futebol, clipes musicais, memes).\n\n"
+            "CRITÉRIOS DE APROVAÇÃO (B-Roll VÁLIDO - NOTA >= 6 / APROVADO=TRUE):\n"
+            "- Imagens reais de satélite, mapas topográficos, tomadas aéreas de drones sobre paisagens e desertos, filmagens históricas de arquivo (preto e branco ou anos 60-90), expedições científicas, instrumentos laboratoriais e estruturas arqueológicas/geológicas autênticas.\n\n"
+            "Responda SEMPRE em JSON: {'aprovado': true/false, 'nota_relevancia': 0 a 10, 'motivo': '...', 'descartar_video_inteiro': true/false}"
         )
 
     def review_frame(self, image_path: str, context_text: str, cooldown_callback=None, status_callback=None) -> Dict[str, Any]:
         if not os.path.exists(image_path):
-            return {"aprovado": False, "nota_relevancia": 0, "motivo": "Arquivo de imagem não encontrado."}
+            return {"aprovado": False, "nota_relevancia": 0.0, "score": 0.0, "motivo": "Arquivo de imagem não encontrado.", "descartar_video_inteiro": True}
         
         keys_pool = resolve_gemini_api_keys(self.api_key)
         if not keys_pool:
             keys_pool = [""]
+
+        models_to_try = [self.model_name]
+        if self.auto_fallback:
+            for m in self.fallback_models:
+                if m not in models_to_try:
+                    models_to_try.append(m)
 
         last_err = None
         for k_idx, current_key in enumerate(keys_pool):
@@ -916,44 +950,103 @@ class ReviewerAgent:
             if cooldown_until > now and len(keys_pool) > 1:
                 continue
 
-            try:
-                img = Image.open(image_path)
-                prompt = (
-                    f"Contexto do mistério/narração da cena: '{context_text}'.\n"
-                    f"Avalie o frame anexado. Ele é relevante, de alta qualidade documental e livre de apresentadores/podcasters?"
-                )
-                
-                client = get_genai_client(api_key=current_key)
-                config = types.GenerateContentConfig(
-                    system_instruction=self.system_instruction,
-                    response_mime_type="application/json",
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                    http_options=types.HttpOptions(timeout=45000)
-                )
-                
-                resp = client.models.generate_content(
-                    model=self.model_name,
-                    contents=[img, prompt],
-                    config=config
-                )
-                
-                clean_res = resp.text.strip()
-                clean_res = re.sub(r"^```json\s*", "", clean_res, flags=re.IGNORECASE)
-                clean_res = re.sub(r"\s*```$", "", clean_res).strip()
-                return json.loads(clean_res)
-            except Exception as e:
-                err_str = str(e)
-                last_err = e
-                is_quota = ("429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower())
-                if is_quota and DEFAULT_KEY_POOL:
-                    DEFAULT_KEY_POOL.mark_key_cooldown(current_key, duration_seconds=3600, reason="Quota 429 no ReviewerAgent")
-                    continue
-                app_logger.warning(f"[ReviewerAgent] Erro na chave #{k_idx+1}: {err_str}")
+            for current_model in models_to_try:
+                try:
+                    img = Image.open(image_path)
+                    prompt = (
+                        f"Contexto do documentário/cena: '{context_text}'.\n"
+                        f"Avalie a imagem anexada: ela é uma filmagem/foto real relevante de documentário, ou contém desenho/animação (ex: Kung Fu Panda/anime), rosto de apresentador/streamer, texto estático ou assunto irrelevante?"
+                    )
+                    
+                    client = get_genai_client(api_key=current_key)
+                    config = types.GenerateContentConfig(
+                        system_instruction=self.system_instruction,
+                        response_mime_type="application/json",
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                        http_options=types.HttpOptions(timeout=35000)
+                    )
+                    
+                    resp = client.models.generate_content(
+                        model=current_model,
+                        contents=[img, prompt],
+                        config=config
+                    )
+                    
+                    clean_res = resp.text.strip()
+                    clean_res = re.sub(r"^```json\s*", "", clean_res, flags=re.IGNORECASE)
+                    clean_res = re.sub(r"\s*```$", "", clean_res).strip()
+                    data = json.loads(clean_res)
+                    
+                    score = float(data.get("nota_relevancia", 0.0) or data.get("score", 0.0))
+                    data["score"] = score
+                    data["nota_relevancia"] = score
+                    # Exige nota >= 6.0 e aprovado = True para passar
+                    if score < 6.0:
+                        data["aprovado"] = False
+                    
+                    return data
+                except Exception as e:
+                    err_str = str(e)
+                    last_err = e
+                    is_quota = ("429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower())
+                    if is_quota and DEFAULT_KEY_POOL:
+                        DEFAULT_KEY_POOL.mark_key_cooldown(current_key, duration_seconds=3600, reason="Quota 429 no ReviewerAgent")
+                        break
+                    app_logger.warning(f"[ReviewerAgent] Erro no modelo {current_model} (Chave #{k_idx+1}): {err_str}")
 
-        app_logger.warning(f"[ReviewerAgent] Auditoria de visão indisponível ({str(last_err)}). Assumindo aprovação padrão.")
+        app_logger.warning(f"[ReviewerAgent] Auditoria de visão indisponível ({str(last_err)}).")
         return {
-            "aprovado": True,
-            "nota_relevancia": 8.0,
-            "motivo": f"Aprovação por fallback (Erro de auditoria visual: {str(last_err)})"
+            "aprovado": False,
+            "nota_relevancia": 0.0,
+            "score": 0.0,
+            "motivo": f"Auditoria visual falhou ({str(last_err)})",
+            "descartar_video_inteiro": False
         }
+
+    def inspect_clip(
+        self,
+        clip_path: str,
+        global_topic: str = "",
+        scene_fala: str = "",
+        video_title: str = "",
+        status_callback = None
+    ) -> Dict[str, Any]:
+        """
+        Extrai um frame de auditoria do clipe MP4 recortado e analisa com Gemini Vision.
+        """
+        if not clip_path or not os.path.exists(clip_path):
+            return {"aprovado": False, "score": 0.0, "nota_relevancia": 0.0, "motivo": "Clipe não encontrado no disco", "descartar_video_inteiro": True}
+
+        # Extrai frame aos 0.5s para auditoria
+        tmp_frame = clip_path + ".review.jpg"
+        try:
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", "0.5",
+                "-i", clip_path,
+                "-vframes", "1",
+                "-q:v", "2",
+                tmp_frame
+            ]
+            subprocess.run(cmd, capture_output=True, timeout=8)
+            if not os.path.exists(tmp_frame):
+                # Tenta frame inicial
+                cmd[2] = "0.0"
+                subprocess.run(cmd, capture_output=True, timeout=8)
+        except Exception:
+            pass
+
+        if not os.path.exists(tmp_frame):
+            return {"aprovado": True, "score": 7.0, "nota_relevancia": 7.0, "motivo": "Frame não pôde ser extraído (assumindo aprovação cautelosa)"}
+
+        context = f"Tema Global: '{global_topic}'. Fala da Cena: '{scene_fala}'. Título do Vídeo no YouTube: '{video_title}'."
+        try:
+            res = self.review_frame(tmp_frame, context_text=context, status_callback=status_callback)
+            return res
+        finally:
+            if os.path.exists(tmp_frame):
+                try:
+                    os.remove(tmp_frame)
+                except Exception:
+                    pass
 

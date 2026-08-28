@@ -422,7 +422,7 @@ class BRollEngine:
                                     status_callback=status_callback
                                 )
                                 best_inspection = inspection
-                                if inspection.get("aprovado", False):
+                                if inspection.get("aprovado", False) and float(inspection.get("score", 0.0)) >= 6.0:
                                     approved = True
                                     safe_status(status_callback, f"✅ **Trecho Aprovado aos {seek_t:.0f}s!** ({inspection.get('motivo')})")
                                     break
@@ -430,11 +430,11 @@ class BRollEngine:
                                     motivo_low = str(inspection.get("motivo", "")).lower()
                                     is_irrelevant = (
                                         inspection.get("descartar_video_inteiro", False) or
-                                        float(inspection.get("score", 10.0)) <= 3.0 or
+                                        float(inspection.get("score", 0.0)) <= 4.0 or
                                         any(kw in motivo_low for kw in [
-                                            "desalinhado", "irrelevante", "outra marca", "outro modelo",
-                                            "desconectad", "drone", "gopro", "tutorial", "estático", "gráfico",
-                                            "incompatível", "diferente", "software", "gameplay", "sem relação"
+                                            "desalinhado", "irrelevante", "outro tema", "desenho", "panda", "anime", "animação", "infantil",
+                                            "cartoon", "shrek", "filme", "poster", "capa", "desconectad", "meme", "vlog", "gameplay",
+                                            "estático", "gráfico", "incompatível", "diferente", "sem relação", "apresentador", "rosto", "face"
                                         ])
                                     )
                                     if is_irrelevant:

@@ -19,12 +19,12 @@ KNOWN_MYSTERY_ANCHORS = {
     "dyatlov", "kola", "derinkuyu", "marianas", "challenger", "bloop", "century",
     "duga", "wow", "tunguska", "voynich", "mkultra", "gobekli", "tepe", "nazca",
     "yonaguni", "roanoke", "flannan", "bouvet", "sargaco", "sargasso", "antarctica",
-    "antartida", "groenlandia", "urss", "soviético", "catatumbo", "marfa", "hessdalen",
+    "antartida", "groenlandia", "catatumbo", "marfa", "hessdalen",
     "habbakuk", "montauk", "filadelfia", "nan madol", "anticitera", "antikythera",
     "bagda", "baghdad", "mary celeste", "kic 8462852", "oumuamua", "proxima centauri",
-    "movile", "bermudas", "cicada 3301", "shugborough", "taos", "hum", "varginha",
+    "movile", "bermudas", "cicada 3301", "shugborough", "taos hum", "varginha",
     "colares", "skinwalker", "rendlesham", "area 51", "dulce", "cheyenne", "diefenbunker",
-    "weather", "balaklava", "riese", "erebus", "terror", "wilkes", "mirny"
+    "balaklava", "riese", "erebus", "terror", "wilkes", "mirny"
 }
 
 
@@ -127,11 +127,17 @@ class CheckpointManager:
         # Marcadores numéricos e anos específicos (ex: 1959, 1977, 1908, 12262, 12km, 18, 150)
         numeric_markers = set(re.findall(r"\b\d+(?:[km|m|mil|graus|minutos|segundos|anos])?\b", full_text))
 
-        # Detecção de âncoras históricas / locais conhecidos
+        # Detecção de âncoras históricas / locais conhecidos com garantia de limite de palavra
+        words_in_full = set(clean_full.split())
+        words_in_title = set(clean_title.split())
         detected_anchors = set()
         for anchor in KNOWN_MYSTERY_ANCHORS:
-            if anchor in clean_full or anchor in clean_title:
-                detected_anchors.add(anchor)
+            if " " in anchor:
+                if anchor in clean_full or anchor in clean_title:
+                    detected_anchors.add(anchor)
+            else:
+                if anchor in words_in_full or anchor in words_in_title:
+                    detected_anchors.add(anchor)
 
         return {
             "tema": tema,
@@ -183,12 +189,17 @@ class CheckpointManager:
                 overlap_words = " ".join(ent_overlap)
                 return 0.85, f"Sobreposição de termos centrais da entidade ('{overlap_words}') com '{exist_fp['tema']}'"
 
-        # 5. Marcadores numéricos e anos únicos (ex: 1959, 1977, 12km) com contexto
+        # 5. Marcadores numéricos e anos específicos (ex: 1959, 1977, 12km) com contexto
         num_overlap = cand_fp["numeric_markers"].intersection(exist_fp["numeric_markers"])
-        specific_nums = {n for n in num_overlap if len(n) >= 3 or n in {"18", "12", "10", "72", "10hz"}}
+        specific_nums = {
+            n for n in num_overlap 
+            if (len(n) == 4 and n.isdigit() and (n.startswith("18") or n.startswith("19") or n.startswith("20"))) 
+            or any(unit in n for unit in ["km", "hz", "mil", "graus", "kwh", "atm"])
+        }
         if specific_nums:
             kw_overlap = cand_fp["keywords"].intersection(exist_fp["keywords"])
-            if len(kw_overlap) >= 3:
+            title_overlap = cand_fp["title_tokens"].intersection(exist_fp["title_tokens"])
+            if len(kw_overlap) >= 5 and len(title_overlap) >= 1:
                 num_str = list(specific_nums)[0]
                 return 0.82, f"Mesmos dados históricos/quantitativos ('{num_str}') e termos em '{exist_fp['tema']}'"
 

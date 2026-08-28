@@ -187,7 +187,7 @@ class AutoPipelineRunner:
         rate: str = "+25%",
         pitch: str = "+0Hz",
         volume: str = "+0%",
-        model_name: str = "gemini-flash-lite-latest",
+        model_name: str = "gemini-3.5-flash-lite",
         auto_fallback: bool = True,
         auto_cooldown: bool = True,
         videos_per_batch: int = VIDEOS_PER_BATCH,
@@ -270,6 +270,83 @@ class AutoPipelineRunner:
         print(f"🔑 Pool de Chaves Gemini : {len(keys_pool)} chave(s) detectada(s)")
         print("=" * 75)
 
+    def ensure_batch_topics(self, batch_idx: int) -> bool:
+        """
+        Garante que todos os vídeos do batch tenham temas inéditos, exclusivos e auditados
+        previamente alocados, evitando rejeições em loop da blacklist durante o processamento.
+        """
+        b_name = f"batch_{batch_idx}"
+        pending_videos = []
+
+        for v_idx in range(self.videos_per_batch):
+            v_dir = self.checkpoint_mgr.get_video_dir(batch_idx, v_idx)
+            ckpt = self.checkpoint_mgr.load_video_checkpoint(batch_idx, v_idx)
+            topic = ckpt.get("topic")
+            if not topic or not isinstance(topic, dict) or not topic.get("tema"):
+                pending_videos.append((v_idx, v_dir, ckpt))
+
+        if not pending_videos:
+            return True
+
+        print(f"\n📋 [Planejamento de Pautas] Alocando temas inéditos para {len(pending_videos)} vídeo(s) pendente(s) no {b_name}...")
+
+        max_rounds = 5
+        for r_idx in range(max_rounds):
+            if not pending_videos:
+                break
+
+            needed_count = min(10, max(5, len(pending_videos) + 3))
+            blacklist_titles = self.checkpoint_mgr.get_blacklist_titles()
+
+            try:
+                print(f"  📡 Solicitando {needed_count} temas inéditos ao ProposerAgent (Rodada {r_idx+1}/{max_rounds})...")
+                candidates = self.proposer_agent.generate_topics(
+                    count=needed_count,
+                    blacklist=blacklist_titles,
+                    status_callback=lambda m: print(f"    📡 {m}")
+                )
+
+                if isinstance(candidates, list):
+                    for cand in candidates:
+                        if not pending_videos:
+                            break
+                        if not isinstance(cand, dict) or not cand.get("tema"):
+                            continue
+
+                        t_name = cand.get("tema", "")
+                        is_blk, blk_reason = self.checkpoint_mgr.is_in_blacklist(
+                            cand,
+                            threshold=0.60,
+                            ai_auditor=self.semantic_auditor
+                        )
+                        if not is_blk:
+                            v_idx, v_dir, ckpt = pending_videos.pop(0)
+                            v_name = f"video_{v_idx}"
+
+                            ckpt["topic"] = cand
+                            ckpt["status"] = "TOPIC_READY"
+                            ckpt["error"] = None
+                            save_video_metadata_file(v_dir, cand)
+                            ckpt["metadata_file"] = "metadata.txt"
+                            self.checkpoint_mgr.save_video_checkpoint(batch_idx, v_idx, ckpt)
+
+                            # Adiciona IMEDIATAMENTE à Blacklist com perfil semântico
+                            self.checkpoint_mgr.add_to_blacklist(cand, b_name, v_name)
+                            print(f"    🎯 [{b_name}/{v_name}] TEMA ALOCADO: '{t_name}'")
+                        else:
+                            print(f"    ⚠️ Tema descartado pela Blacklist: '{t_name}' ({blk_reason})")
+
+            except Exception as e:
+                app_logger.warning(f"[AutoPipeline] Erro na alocação de temas (rodada {r_idx+1}): {str(e)}")
+                time.sleep(2)
+
+        if pending_videos:
+            app_logger.warning(f"[AutoPipeline] Restaram {len(pending_videos)} vídeos sem tema no {b_name}.")
+            return False
+
+        print(f"  ✅ Todos os temas do {b_name} foram alocados com sucesso em vídeos distintos!\n")
+        return True
+
     def process_single_video(self, batch_idx: int, video_idx: int) -> bool:
         """
         Executa ou retoma todas as 6 etapas atômicas de produção de um único vídeo.
@@ -299,44 +376,15 @@ class AutoPipelineRunner:
 
             # ETAPA 1: GERAÇÃO E ESCOLHA DE TEMA INÉDITO (PROPOSER AGENT + BLACKLIST SEMÂNTICA)
             if stage in ("NOT_STARTED", "PENDING", "TOPIC_PENDING", "GENERATE_TOPIC") or not ckpt.get("topic") or not ckpt.get("topic", {}).get("tema"):
-                print("  🔍 [1/6] Gerando e auditando tema inédito em essência...")
+                print("  🔍 [1/6] Verificando tema inédito alocado para o vídeo...")
 
-                blacklist_titles = self.checkpoint_mgr.get_blacklist_titles()
-                
-                max_topic_attempts = 4
-                selected_topic = None
+                if not ckpt.get("topic") or not ckpt.get("topic", {}).get("tema"):
+                    self.ensure_batch_topics(batch_idx)
+                    ckpt = self.checkpoint_mgr.load_video_checkpoint(batch_idx, video_idx)
 
-                for attempt in range(max_topic_attempts):
-                    try:
-                        proposed_topics = self.proposer_agent.generate_topics(
-                            count=5,
-                            blacklist=blacklist_titles,
-                            status_callback=lambda m: print(f"    📡 {m}")
-                        )
-                        
-                        if isinstance(proposed_topics, list) and proposed_topics:
-                            for candidate in proposed_topics:
-                                t_name = candidate.get("tema", "")
-                                is_blk, blk_reason = self.checkpoint_mgr.is_in_blacklist(
-                                    candidate,
-                                    threshold=0.60,
-                                    ai_auditor=self.semantic_auditor
-                                )
-                                if not is_blk:
-                                    selected_topic = candidate
-                                    break
-                                else:
-                                    print(f"    ⚠️ Tema descartado pela Blacklist (Essência Repetida): '{t_name}' ({blk_reason})")
-                            
-                            if selected_topic:
-                                break
-                    except Exception as e:
-                        app_logger.warning(f"[AutoPipeline] Erro ao propor tema (tentativa {attempt+1}/{max_topic_attempts}): {str(e)}")
-                        print(f"    ⚠️ Tentativa {attempt+1}/{max_topic_attempts} de gerar tema falhou: {str(e)}")
-                        time.sleep(3)
-
-                if not selected_topic:
-                    err_msg = "Não foi possível gerar um tema inédito via IA após múltiplas tentativas. Pausando sem gerar conteúdo genérico."
+                selected_topic = ckpt.get("topic")
+                if not selected_topic or not isinstance(selected_topic, dict) or not selected_topic.get("tema"):
+                    err_msg = f"Não foi possível alocar um tema inédito para {b_name}/{v_name}."
                     print(f"  ❌ {err_msg}")
                     app_logger.error(f"[AutoPipeline] {err_msg}")
                     ckpt["error"] = err_msg
@@ -344,14 +392,6 @@ class AutoPipelineRunner:
                     return False
 
                 print(f"  🎯 TEMA APROVADO: \"{selected_topic.get('tema')}\"")
-                ckpt["topic"] = selected_topic
-                ckpt["status"] = "TOPIC_READY"
-                save_video_metadata_file(v_dir, selected_topic)
-                ckpt["metadata_file"] = "metadata.txt"
-                self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
-                
-                # Registra IMEDIATAMENTE na Blacklist com perfil semântico
-                self.checkpoint_mgr.add_to_blacklist(selected_topic, b_name, v_name)
                 stage = "GENERATE_DISSERTATION"
 
             if not RUNNING:
@@ -491,12 +531,15 @@ class AutoPipelineRunner:
                     
                     print(f"    🔍 Cena {sc_id}/{len(cenas)}: Buscando '{query}'...")
                     
-                    # 1. Busca e baixa segmento do YouTube
+                    # 1. Busca e baixa segmento do YouTube com auditoria visual rigorosa
                     broll_res = self.broll_engine.fetch_scene_broll(
                         query=query,
                         output_dir=broll_dir,
                         scene_idx=int(sc_id) if sc_id.isdigit() else idx,
-                        target_duration=dur_est
+                        target_duration=dur_est,
+                        global_topic=ckpt.get("topic", {}).get("tema", ""),
+                        reviewer_agent=self.reviewer_agent,
+                        scene_fala=c.get("fala", "")
                     )
                     
                     video_file = broll_res.get("video_file")
@@ -506,11 +549,20 @@ class AutoPipelineRunner:
                     if video_file and preview_frame and os.path.exists(preview_frame):
                         review_result = self.reviewer_agent.review_frame(
                             image_path=preview_frame,
-                            context_text=c.get("fala", query)
+                            context_text=f"Tema Global: '{ckpt.get('topic', {}).get('tema', '')}'. Fala: '{c.get('fala', query)}'."
                         )
                         broll_res["review"] = review_result
-                        if not review_result.get("aprovado", True):
-                            print(f"    ⚠️ Frame reprovado pelo Revisor: {review_result.get('motivo')}")
+                        is_ok = review_result.get("aprovado", False) and float(review_result.get("nota_relevancia", 0.0)) >= 6.0
+                        if not is_ok:
+                            print(f"    🚫 Frame reprovado pelo Revisor ({review_result.get('motivo')}) -> Descartando vídeo...")
+                            if os.path.exists(video_file):
+                                try:
+                                    os.remove(video_file)
+                                except Exception:
+                                    pass
+                            broll_res["video_file"] = ""
+                            broll_res["file"] = ""
+                            broll_res["success"] = False
 
                     scenes_media[sc_id] = broll_res
                     ckpt["scenes_media"] = scenes_media
@@ -536,14 +588,16 @@ class AutoPipelineRunner:
                 cenas = ckpt.get("storyboard", [])
                 scenes_media = ckpt.get("scenes_media", {})
                 
-                # Monta a lista ordenada de segmentos de vídeo para cada cena (100% vídeos reais baixados)
+                # Monta a lista ordenada de segmentos de vídeo para cada cena (100% vídeos reais e auditados)
                 media_list = []
                 available_video_files = []
                 for idx, c in enumerate(cenas):
                     sc_id = str(c.get("scene_id", idx + 1))
                     m_data = scenes_media.get(sc_id, {})
                     v_file = m_data.get("video_file")
-                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0:
+                    review_data = m_data.get("review", {})
+                    is_appr = m_data.get("success", False) and review_data.get("aprovado", True) and float(review_data.get("nota_relevancia", 10.0)) >= 6.0
+                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0 and is_appr:
                         available_video_files.append(v_file)
 
                 for idx, c in enumerate(cenas):
@@ -551,7 +605,9 @@ class AutoPipelineRunner:
                     m_data = scenes_media.get(sc_id, {})
                     v_file = m_data.get("video_file")
                     dur = float(c.get("duracao_estimada", 5.0))
-                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0:
+                    review_data = m_data.get("review", {})
+                    is_appr = m_data.get("success", False) and review_data.get("aprovado", True) and float(review_data.get("nota_relevancia", 10.0)) >= 6.0
+                    if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0 and is_appr:
                         media_list.append({
                             "type": "video",
                             "file": v_file,
@@ -559,7 +615,7 @@ class AutoPipelineRunner:
                             "is_fallback": m_data.get("is_fallback", False)
                         })
                     elif available_video_files:
-                        # Reutiliza vídeo real baixado existente para garantir que nenhum frame sintético seja gerado
+                        # Reutiliza vídeo real auditado existente para garantir zero frames de animação/lixo
                         fallback_file = available_video_files[idx % len(available_video_files)]
                         media_list.append({
                             "type": "video",
@@ -568,7 +624,7 @@ class AutoPipelineRunner:
                             "is_fallback": True
                         })
                     else:
-                        raise Exception(f"Nenhum clipe de vídeo real baixado disponível para a cena {sc_id}")
+                        raise Exception(f"Nenhum clipe de vídeo real auditado disponível para a cena {sc_id}")
 
                 try:
                     bgm_track = self.bgm_engine.get_bgm_for_topic(
@@ -646,6 +702,9 @@ class AutoPipelineRunner:
         print(f"🚀 INICIANDO EXECUÇÃO DO {b_name.upper()} ({self.videos_per_batch} VÍDEOS)")
         print(f"{'#' * 75}")
 
+        # Aloca previamente os temas inéditos para todos os vídeos pendentes do batch
+        self.ensure_batch_topics(batch_idx)
+
         completed_count = 0
         for v_idx in range(self.videos_per_batch):
             if not RUNNING:
@@ -705,7 +764,7 @@ def main():
     parser.add_argument("--rate", type=str, default="+25%", help="Taxa de velocidade do áudio (ex: +25%%)")
     parser.add_argument("--pitch", type=str, default="+0Hz", help="Tom vocal (ex: +0Hz)")
 
-    parser.add_argument("--model", type=str, default="gemini-flash-lite-latest", help="Modelo LLM")
+    parser.add_argument("--model", type=str, default="gemini-3.5-flash-lite", help="Modelo LLM")
     parser.add_argument("--max-batches", type=int, default=10, help="Máximo de batches a processar")
     args = parser.parse_args()
 
