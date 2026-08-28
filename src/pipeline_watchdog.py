@@ -174,7 +174,7 @@ def spawn_generator_new_window():
     target_bat = os.path.join(PROJECT_ROOT, "iniciar_auto_geracao.bat")
     watchdog_logger.info(f"🚀 [Watchdog] Disparando nova janela de console para o gerador: {target_bat}")
     if sys.platform == "win32":
-        cmd = f'start "Minuto Inexplicavel - Gerador Autonomo (9:16)" cmd /k "{target_bat}"'
+        cmd = f'start "Minuto Inexplicavel - Gerador Autonomo (9:16)" cmd /c "{target_bat}"'
         subprocess.Popen(cmd, shell=True, cwd=PROJECT_ROOT)
     else:
         subprocess.Popen(["bash", target_bat], cwd=PROJECT_ROOT)

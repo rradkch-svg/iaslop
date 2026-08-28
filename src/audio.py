@@ -134,16 +134,16 @@ class AudioEngine:
         with open(output_mp3, "wb") as f:
             f.write(raw_audio)
 
+        orig_words = [w.strip() for w in clean_text.split() if w.strip()]
+
         # Mapeia as palavras do texto original limpo para os tempos capturados via alinhamento fonético
         if word_boundaries:
             if self.pronunciation_engine and hasattr(self.pronunciation_engine, "align_phonetic_timing_to_original"):
                 return self.pronunciation_engine.align_phonetic_timing_to_original(clean_text, word_boundaries)
-            orig_words = clean_text.split()
             if len(word_boundaries) == len(orig_words):
                 for idx, ow in enumerate(orig_words):
-                    word_boundaries[idx]["word"] = ow.strip()
-                return word_boundaries
-
+                    word_boundaries[idx]["word"] = ow
+            return word_boundaries
 
         if sentence_boundaries:
             words_timing = []
@@ -176,10 +176,13 @@ class AudioEngine:
                     })
                     current_time = w_end
             
+            if self.pronunciation_engine and hasattr(self.pronunciation_engine, "align_phonetic_timing_to_original"):
+                return self.pronunciation_engine.align_phonetic_timing_to_original(clean_text, words_timing)
+
             # Se a quantidade de palavras bater com o texto original, preserva as palavras originais
             if len(words_timing) == len(orig_words):
                 for idx, ow in enumerate(orig_words):
-                    words_timing[idx]["word"] = ow.strip()
+                    words_timing[idx]["word"] = ow
             return words_timing
 
         # Fallback de temporização proporcional
@@ -189,7 +192,7 @@ class AudioEngine:
         for w in raw_words:
             dur = max(len(w) * 0.045, 0.20)
             words_timing.append({
-                "word": w.strip(),
+                "word": w,
                 "start": round(curr, 3),
                 "end": round(curr + dur, 3)
             })

@@ -39,5 +39,7 @@ if "%PY_CMD%"=="" (
 if !errorlevel! neq 0 (
     echo.
     echo [AVISO] Watchdog encerrou com codigo (!errorlevel!).
-    pause
+    timeout /t 5 >nul 2>&1
 )
+
+exit /b !errorlevel!

@@ -136,21 +136,13 @@ function Unregister-AutoStartup {
         Write-Host "[OK] Atalho removido da pasta Inicializar (Startup)." -ForegroundColor Green
     }
 
-    try {
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
-        Write-Host "[OK] Tarefa '$TaskName' removida do Agendador de Tarefas via PowerShell." -ForegroundColor Green
-    } catch {
-        $cmd = "schtasks /Delete /TN `"$TaskName`" /F"
-        $res = cmd.exe /c $cmd 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Tarefa '$TaskName' removida via schtasks." -ForegroundColor Green
-        } else {
-            try {
-                Start-Process -FilePath "cmd.exe" -ArgumentList "/c schtasks /Delete /TN `"$TaskName`" /F" -Verb RunAs -Wait
-                Write-Host "[OK] Tarefa '$TaskName' removida com elevacao." -ForegroundColor Green
-            } catch {
-                Write-Host "[INFO] Nao foi possivel remover ou tarefa nao existia." -ForegroundColor Gray
-            }
+    foreach ($tName in @($TaskName, "AISlopStudio_AutoRecovery")) {
+        try {
+            Unregister-ScheduledTask -TaskName $tName -Confirm:$false -ErrorAction SilentlyContinue
+            Write-Host "[OK] Tarefa '$tName' removida do Agendador de Tarefas via PowerShell." -ForegroundColor Green
+        } catch {
+            $cmd = "schtasks /Delete /TN `"$tName`" /F"
+            $res = cmd.exe /c $cmd 2>&1
         }
     }
 }

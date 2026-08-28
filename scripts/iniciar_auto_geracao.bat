@@ -43,7 +43,7 @@ if "%PY_CMD%"=="" (
     echo Por favor, instale as dependencias executando:
     echo   py -3.11 -m pip install -r requirements.txt
     echo.
-    pause
+    timeout /t 10 >nul 2>&1
     exit /b 1
 )
 
@@ -60,5 +60,7 @@ if not "%EXIT_CODE%"=="0" (
     echo.
     echo [AVISO] O processo encerrou com codigo %EXIT_CODE%.
     echo Verifique os logs detalhados em .\logs\latest.log
-    pause
+    timeout /t 5 >nul 2>&1
 )
+
+exit /b %EXIT_CODE%

@@ -46,6 +46,6 @@ if "%~1"=="--boot" (
     timeout /t 10 /nobreak >nul 2>&1
 )
 
-start "Minuto Inexplicavel Studio - Gerador Autonomo (9:16)" cmd /k "%~dp0iniciar_auto_geracao.bat"
+start "Minuto Inexplicavel Studio - Gerador Autonomo (9:16)" cmd /c "%~dp0iniciar_auto_geracao.bat"
 
 exit /b 0
