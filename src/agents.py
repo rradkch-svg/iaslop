@@ -926,6 +926,29 @@ class ReviewerAgent:
             "Responda SEMPRE em JSON: {'aprovado': true/false, 'nota_relevancia': 0 a 10, 'motivo': '...', 'descartar_video_inteiro': true/false}"
         )
 
+    def pre_filter_title(self, video_title: str, global_topic: str = "") -> Tuple[bool, str]:
+        """
+        Pré-filtragem rápida de metadados e título antes de realizar download do YouTube.
+        Elimina instantaneamente vídeos com termos incompatíveis (desenho, podcast, gameplay, vlog, anime).
+        """
+        if not video_title or not isinstance(video_title, str):
+            return True, "Título vazio, prosseguindo com auditoria visual"
+
+        t_low = video_title.lower()
+
+        forbidden_keywords = [
+            "kung fu panda", "panda", "shrek", "anime", "desenho", "cartoon", "animation",
+            "minecraft", "gameplay", "roblox", "gta", "fortnite", "podcast", "react", "reagindo",
+            "vlog", "meme", "tiktok", "asmr", "speedrun", "playthrough", "unboxing",
+            "trailer oficial", "official trailer", "parody", "paródia", "compilation"
+        ]
+
+        for kw in forbidden_keywords:
+            if kw in t_low:
+                return False, f"Termo proibido detectado no título: '{kw}'"
+
+        return True, "Aprovado pelo pré-filtro de metadados"
+
     def review_frame(self, image_path: str, context_text: str, cooldown_callback=None, status_callback=None) -> Dict[str, Any]:
         if not os.path.exists(image_path):
             return {"aprovado": False, "nota_relevancia": 0.0, "score": 0.0, "motivo": "Arquivo de imagem não encontrado.", "descartar_video_inteiro": True}

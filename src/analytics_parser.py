@@ -43,13 +43,16 @@ COLUMN_ALIASES: Dict[str, List[str]] = {
     "youtube_id": ["conteudo", "conteúdo", "content", "video_id", "id_do_video", "id_do_vídeo", "video", "vídeo"],
     "publish_time": ["horario_de_publicacao_do_video", "horário_de_publicação_do_vídeo", "video_publish_time", "publish_time", "data_de_publicacao", "publish_date"],
     "duration_sec": ["duracao", "duração", "duration", "video_duration_seconds", "duração_do_vídeo_segundos", "video_duration"],
+    "avg_view_duration": ["duracao_media_da_visualizacao", "duração_média_da_visualização", "average_view_duration", "duracao_media", "duração_média"],
+    "intentional_views": ["visualizacoes_intencionais", "visualizações_intencionais", "intentional_views"],
     "views": ["visualizacoes", "visualizações", "views", "views_from_youtube_shorts_feed", "visualizações_do_feed_dos_shorts"],
     "watch_time_hours": ["tempo_de_exibicao_horas", "tempo_de_exibição_horas", "watch_time_hours", "watch_time"],
     "subscribers": ["inscritos", "subscribers", "inscricoes", "inscrições", "subscribers_gained", "inscrições_ganhas"],
-    "impressions": ["impressoes", "impressões", "impressions"],
-    "ctr_pct": ["taxa_de_cliques_de_impressoes", "taxa_de_cliques_de_impressões", "taxa_de_cliques_das_impressões", "impressions_click_through_rate", "impressions_ctr", "ctr"],
-    "apv_pct": ["porcentagem_media_visualizada", "porcentagem_média_visualizada", "average_percentage_viewed", "apv", "media_de_visualizacao"],
-    "retention_3s_pct": ["visualizado_em_vez_de_ignorado", "viewed_vs_swiped_away", "shown_in_feed", "exibições_no_feed"],
+    "impressions": ["impressoes_de_miniaturas", "impressões_de_miniaturas", "impressoes", "impressões", "impressions"],
+    "ctr_pct": ["taxa_de_cliques_na_miniatura", "taxa_de_cliques_de_impressoes", "taxa_de_cliques_de_impressões", "taxa_de_cliques_das_impressões", "impressions_click_through_rate", "impressions_ctr", "ctr"],
+    "apv_pct": ["porcentagem_visualizada_media", "porcentagem_visualizada_média", "porcentagem_media_visualizada", "porcentagem_média_visualizada", "average_percentage_viewed", "apv", "media_de_visualizacao"],
+    "retention_3s_pct": ["continuaram_assistindo", "visualizado_em_vez_de_ignorado", "viewed_vs_swiped_away", "shown_in_feed", "exibições_no_feed"],
+    "unique_reach": ["alcance_unico", "alcance_único", "unique_reach", "unique_viewers"],
     "likes": ["marcacoes_gostei", "marcações_gostei", "likes", "curtidas", "gostei"],
     "comments": ["comentarios_adicionados", "comentários_adicionados", "comments_added", "comments", "comentarios", "comentários"],
     "shares": ["compartilhamentos", "shares"]
@@ -62,20 +65,40 @@ def normalize_column_name(col_name: str) -> str:
     c = re.sub(r"[^\w\s]", " ", c)
     c = re.sub(r"\s+", "_", c).strip("_")
     
-    # 1. Correspondência exata primeiro
+    clean_c_no_accents = re.sub(r"[áàãâä]", "a", re.sub(r"[éèêë]", "e", re.sub(r"[íìîï]", "i", re.sub(r"[óòõôö]", "o", re.sub(r"[úùûü]", "u", re.sub(r"[ç]", "c", c))))))
     for standard_key, aliases in COLUMN_ALIASES.items():
         for alias in aliases:
             clean_alias = re.sub(r"[^\w\s]", " ", alias.lower()).strip().replace(" ", "_")
-            if c == clean_alias:
+            clean_alias_no_acc = re.sub(r"[áàãâä]", "a", re.sub(r"[éèêë]", "e", re.sub(r"[íìîï]", "i", re.sub(r"[óòõôö]", "o", re.sub(r"[úùûü]", "u", re.sub(r"[ç]", "c", clean_alias))))))
+            if c == clean_alias or clean_c_no_accents == clean_alias_no_acc:
                 return standard_key
 
-    # 2. Correspondência por prefixo
+    # Substring / Prefixo estrito para termos longos
     for standard_key, aliases in COLUMN_ALIASES.items():
         for alias in aliases:
             clean_alias = re.sub(r"[^\w\s]", " ", alias.lower()).strip().replace(" ", "_")
-            if c.startswith(clean_alias):
+            clean_alias_no_acc = re.sub(r"[áàãâä]", "a", re.sub(r"[éèêë]", "e", re.sub(r"[íìîï]", "i", re.sub(r"[óòõôö]", "o", re.sub(r"[úùûü]", "u", re.sub(r"[ç]", "c", clean_alias))))))
+            if len(clean_alias_no_acc) >= 6 and (c.startswith(clean_alias) or clean_c_no_accents.startswith(clean_alias_no_acc)):
                 return standard_key
     return c
+
+def parse_duration_seconds_safe(val: Any) -> Optional[float]:
+    """Converte duração para segundos, suportando inteiros, floats e formatos HH:MM:SS ou MM:SS."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s == "-":
+        return None
+    if ":" in s:
+        parts = s.split(":")
+        try:
+            if len(parts) == 3:
+                return float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+            elif len(parts) == 2:
+                return float(parts[0]) * 60 + float(parts[1])
+        except ValueError:
+            pass
+    return parse_float_safe(s)
 
 def parse_float_safe(val: Any) -> Optional[float]:
     """Converte valor para float lidando com formatação brasileira e americana."""
@@ -339,13 +362,16 @@ class YouTubeAnalyticsZipParser:
                 continue
 
             clean_title = clean_youtube_title(raw_title)
-            views = parse_int_safe(row_dict.get("views"))
+            views = parse_int_safe(row_dict.get("views")) or parse_int_safe(row_dict.get("intentional_views"))
             watch_time_h = parse_float_safe(row_dict.get("watch_time_hours"))
-            duration_sec = parse_float_safe(row_dict.get("duration_sec"))
+            duration_sec = parse_duration_seconds_safe(row_dict.get("duration_sec"))
+            avg_view_dur = parse_duration_seconds_safe(row_dict.get("avg_view_duration"))
             subscribers = parse_int_safe(row_dict.get("subscribers"))
             impressions = parse_int_safe(row_dict.get("impressions"))
             ctr_pct = parse_float_safe(row_dict.get("ctr_pct"))
             apv_pct = parse_float_safe(row_dict.get("apv_pct"))
+            if apv_pct is None and avg_view_dur is not None and duration_sec and duration_sec > 0:
+                apv_pct = round((avg_view_dur / duration_sec) * 100.0, 2)
             retention_3s = parse_float_safe(row_dict.get("retention_3s_pct"))
             likes = parse_int_safe(row_dict.get("likes"))
             comments = parse_int_safe(row_dict.get("comments"))
@@ -418,6 +444,141 @@ class YouTubeAnalyticsZipParser:
 
         app_logger.info(f"[AnalyticsParser] Extraídos {len(parsed_items)} registros com normalização de idade de {source_name}")
         return parsed_items
+
+    def parse_csv_file(self, csv_path: str) -> List[Dict[str, Any]]:
+        """Lê diretamente um arquivo .csv avulso de relatório de Analytics."""
+        if not os.path.exists(csv_path):
+            return []
+        ref_date = extract_reference_date_from_filename(os.path.basename(csv_path))
+        with open(csv_path, "rb") as f:
+            raw_bytes = f.read()
+        return self._parse_table_csv_bytes(
+            raw_bytes=raw_bytes,
+            ref_date=ref_date,
+            timeseries_map={},
+            source_name=os.path.basename(csv_path)
+        )
+
+    def parse_all_available(self) -> List[Dict[str, Any]]:
+        """Lê todos os relatórios disponíveis (.zip e .csv) na pasta /analytics de forma unificada."""
+        collected: Dict[str, Dict[str, Any]] = {}
+        
+        # 1. Processa todos os ZIPs
+        zips = self.list_all_zips()
+        for z_path in zips:
+            for item in self.parse_zip_content(z_path):
+                key = item.get("youtube_id") or item.get("raw_title")
+                if key and (key not in collected or (item.get("views", 0) > collected[key].get("views", 0))):
+                    collected[key] = item
+
+        # 2. Processa CSVs avulsos na pasta /analytics
+        csvs = glob.glob(os.path.join(self.analytics_dir, "*.csv"))
+        for c_path in csvs:
+            bn = os.path.basename(c_path).lower()
+            if "total" in bn or "chart" in bn or "gráfico" in bn:
+                continue
+            for item in self.parse_csv_file(c_path):
+                key = item.get("youtube_id") or item.get("raw_title")
+                if key and (key not in collected or (item.get("views", 0) > collected[key].get("views", 0))):
+                    collected[key] = item
+
+        return list(collected.values())
+
+    def sync_with_memory_system(self, memory_sys: Any) -> int:
+        """
+        Sincroniza todos os registros de analytics encontrados com a memória algorítmica.
+        Retorna o total de vídeos atualizados.
+        """
+        items = self.parse_all_available()
+        if not items:
+            app_logger.warning("[AnalyticsParser] Nenhum dado de analytics encontrado para sincronização.")
+            return 0
+
+        synced_count = 0
+        for item in items:
+            yt_id = item.get("youtube_id") or ""
+            raw_title = item.get("raw_title") or ""
+            clean_title = item.get("clean_title") or raw_title
+            
+            identifier = yt_id if yt_id else clean_title
+            
+            ok, msg, _ = memory_sys.ingest_analytics_feedback(
+                identifier=identifier,
+                views=item.get("views", 0),
+                retention_3s_pct=item.get("retention_3s_pct"),
+                apv_pct=item.get("apv_pct"),
+                ctr_pct=item.get("ctr_pct"),
+                likes=item.get("likes", 0),
+                comments=item.get("comments", 0),
+                shares=item.get("shares", 0),
+                publish_date=item.get("publish_date"),
+                exposure_days=item.get("exposure_days"),
+                views_per_day=item.get("views_per_day"),
+                projected_28d_views=item.get("projected_28d_views"),
+                growth_trajectory=item.get("growth_trajectory"),
+                watch_time_hours=item.get("watch_time_hours"),
+                impressions=item.get("impressions"),
+                subscribers=item.get("subscribers"),
+                feedback_notes=f"Fonte: {item.get('source', '')}"
+            )
+            
+            # Se não encontrou o vídeo no histórico local, cria automaticamente o registro
+            if not ok:
+                vid_payload = {
+                    "video_id": yt_id or f"yt_{int(time.time()*1000)}_{synced_count}",
+                    "tema": raw_title,
+                    "core_entity": extract_canonical_entity(clean_title),
+                    "duracao_segundos": item.get("duration_seconds", 60.0),
+                    "analytics": {
+                        "views": item.get("views", 0),
+                        "retention_3s_pct": item.get("retention_3s_pct"),
+                        "apv_pct": item.get("apv_pct"),
+                        "ctr_pct": item.get("ctr_pct"),
+                        "likes": item.get("likes", 0),
+                        "comments": item.get("comments", 0),
+                        "shares": item.get("shares", 0),
+                        "watch_time_hours": item.get("watch_time_hours"),
+                        "subscribers": item.get("subscribers"),
+                        "impressions": item.get("impressions"),
+                        "performance_tier": memory_sys._calculate_exposure_aware_tier(
+                            views=item.get("views", 0),
+                            exposure_days=item.get("exposure_days", 1.0),
+                            views_per_day=item.get("views_per_day", 0.0),
+                            projected_28d_views=item.get("projected_28d_views", item.get("views", 0)),
+                            apv_pct=item.get("apv_pct"),
+                            ctr_pct=item.get("ctr_pct"),
+                            retention_3s_pct=item.get("retention_3s_pct"),
+                            likes=item.get("likes", 0)
+                        ),
+                        "feedback_notes": f"Fonte: {item.get('source', '')}"
+                    }
+                }
+                memory_sys.record_video_generation(vid_payload)
+                # Re-ingest
+                memory_sys.ingest_analytics_feedback(
+                    identifier=vid_payload["video_id"],
+                    views=item.get("views", 0),
+                    retention_3s_pct=item.get("retention_3s_pct"),
+                    apv_pct=item.get("apv_pct"),
+                    ctr_pct=item.get("ctr_pct"),
+                    likes=item.get("likes", 0),
+                    comments=item.get("comments", 0),
+                    shares=item.get("shares", 0),
+                    publish_date=item.get("publish_date"),
+                    exposure_days=item.get("exposure_days"),
+                    views_per_day=item.get("views_per_day"),
+                    projected_28d_views=item.get("projected_28d_views"),
+                    growth_trajectory=item.get("growth_trajectory"),
+                    watch_time_hours=item.get("watch_time_hours"),
+                    impressions=item.get("impressions"),
+                    subscribers=item.get("subscribers"),
+                    feedback_notes=f"Fonte: {item.get('source', '')}"
+                )
+
+            synced_count += 1
+
+        app_logger.info(f"[AnalyticsParser] Sincronizados {synced_count} registros com AlgorithmMemorySystem.")
+        return synced_count
 
     def match_youtube_to_local_records(
         self,

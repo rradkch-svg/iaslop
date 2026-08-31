@@ -392,8 +392,9 @@ class CheckpointManager:
                         pass
                 
                 # Validação física de integridade
-                final_video_file = os.path.join(v_dir, "final_video.mp4")
-                if os.path.exists(final_video_file) and os.path.getsize(final_video_file) > 100_000:
+                final_video_file1 = os.path.join(v_dir, "final_video.mp4")
+                final_video_file2 = os.path.join(v_dir, "final_output.mp4")
+                if (os.path.exists(final_video_file1) and os.path.getsize(final_video_file1) > 100_000) or (os.path.exists(final_video_file2) and os.path.getsize(final_video_file2) > 100_000):
                     v_status = "COMPLETED"
 
                 videos_status[v_name] = v_status
@@ -515,12 +516,20 @@ class CheckpointManager:
         storyboard = ckpt.get("storyboard", [])
         topic = ckpt.get("topic", {})
 
-        # 1. Verifica se vídeo final já está 100% concluído e íntegro
-        if os.path.exists(final_mp4) and os.path.getsize(final_mp4) > 100_000:
-            ckpt["status"] = "COMPLETED"
-            ckpt["final_video_size_bytes"] = os.path.getsize(final_mp4)
-            self.save_video_checkpoint(batch_index, video_index, ckpt)
-            return "COMPLETED", ckpt
+        # 1. Verifica se vídeo final já está 100% concluído e íntegro no disco
+        final_candidates = [
+            os.path.join(v_dir, ckpt.get("final_video", "final_output.mp4")),
+            os.path.join(v_dir, ckpt.get("final_video_file", "final_video.mp4")),
+            os.path.join(v_dir, "final_output.mp4"),
+            os.path.join(v_dir, "final_video.mp4")
+        ]
+        for f_cand in final_candidates:
+            if os.path.exists(f_cand) and os.path.getsize(f_cand) > 100_000:
+                ckpt["status"] = "COMPLETED"
+                ckpt["final_video_size_bytes"] = os.path.getsize(f_cand)
+                ckpt["final_video_path"] = f_cand
+                self.save_video_checkpoint(batch_index, video_index, ckpt)
+                return "COMPLETED", ckpt
 
         # 2. Verifica se o tema foi definido
         if not topic or not topic.get("tema"):
@@ -553,32 +562,44 @@ class CheckpointManager:
     def get_next_work_target(self) -> Tuple[int, int, str, str]:
         """
         Determina o próximo batch e vídeo que precisa de trabalho.
-        Garante transição automática de batch_0 para batch_1 .. batch_N.
+        Garante transição automática sem pular nenhum vídeo ou batch incompleto.
         """
         state = self.load_global_state()
-        current_batch_idx = state.get("current_batch_index", 0)
 
-        # Procura a partir do batch atual
-        for b_idx in range(current_batch_idx, current_batch_idx + 1000):
-            b_dir = self.get_batch_dir(b_idx)
+        # Coleta todos os números de batches existentes no disco
+        batch_nums = []
+        if os.path.exists(self.root_dir):
+            for name in os.listdir(self.root_dir):
+                if os.path.isdir(os.path.join(self.root_dir, name)) and name.startswith("batch_"):
+                    try:
+                        batch_nums.append(int(name.split("_")[1]))
+                    except (ValueError, IndexError):
+                        pass
+        batch_nums = sorted(list(set(batch_nums)))
+        max_batch = max(batch_nums, default=0)
+        search_range = batch_nums + list(range(max_batch + 1, max_batch + 100))
+
+        for b_idx in search_range:
             completed_in_this_batch = 0
+            first_pending_v = None
 
             for v_idx in range(self.videos_per_batch):
                 stage, ckpt = self.determine_video_resume_stage(b_idx, v_idx)
                 if stage == "COMPLETED":
                     completed_in_this_batch += 1
-                else:
-                    # Encontrou o primeiro vídeo que precisa de processamento!
-                    state["current_batch_index"] = b_idx
-                    self.save_global_state(state)
-                    return b_idx, v_idx, f"batch_{b_idx}", f"video_{v_idx}"
+                elif first_pending_v is None:
+                    first_pending_v = v_idx
 
-            # Se todos os 10 vídeos deste batch estiverem completos, continua para o próximo batch
-            if completed_in_this_batch >= self.videos_per_batch:
-                continue
+            if completed_in_this_batch < self.videos_per_batch and first_pending_v is not None:
+                state["current_batch_index"] = b_idx
+                self.save_global_state(state)
+                return b_idx, first_pending_v, f"batch_{b_idx}", f"video_{first_pending_v}"
 
-        # Fallback
-        return current_batch_idx, 0, f"batch_{current_batch_idx}", "video_0"
+        # Se todos estiverem completos, avança para o próximo novo batch
+        next_new_batch = max_batch + 1
+        state["current_batch_index"] = next_new_batch
+        self.save_global_state(state)
+        return next_new_batch, 0, f"batch_{next_new_batch}", "video_0"
 
     def get_next_pending_target(self) -> Tuple[int, int]:
         """

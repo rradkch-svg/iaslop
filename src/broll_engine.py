@@ -306,7 +306,7 @@ class BRollEngine:
                     vid_url = f"https://www.youtube.com/watch?v={vid_id}"
 
                     # 1. Pré-filtragem instantânea de metadados / título antes do download
-                    if reviewer_agent:
+                    if reviewer_agent and hasattr(reviewer_agent, "pre_filter_title"):
                         ok_title, pre_reason = reviewer_agent.pre_filter_title(vid_title, global_topic)
                         if not ok_title:
                             app_logger.info(f"[BRollEngine] Candidato '{vid_title}' descartado pelo pré-filtro: {pre_reason}")

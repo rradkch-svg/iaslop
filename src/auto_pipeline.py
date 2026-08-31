@@ -290,12 +290,12 @@ class AutoPipelineRunner:
 
         print(f"\n📋 [Planejamento de Pautas] Alocando temas inéditos para {len(pending_videos)} vídeo(s) pendente(s) no {b_name}...")
 
-        max_rounds = 5
+        max_rounds = 10
         for r_idx in range(max_rounds):
             if not pending_videos:
                 break
 
-            needed_count = min(10, max(5, len(pending_videos) + 3))
+            needed_count = min(12, max(5, len(pending_videos) + 4))
             blacklist_titles = self.checkpoint_mgr.get_blacklist_titles()
 
             try:
@@ -381,6 +381,35 @@ class AutoPipelineRunner:
                 if not ckpt.get("topic") or not ckpt.get("topic", {}).get("tema"):
                     self.ensure_batch_topics(batch_idx)
                     ckpt = self.checkpoint_mgr.load_video_checkpoint(batch_idx, video_idx)
+
+                # Se ainda não foi alocado, aloca diretamente um tema exclusivo para este vídeo
+                topic_retry = 0
+                while (not ckpt.get("topic") or not ckpt.get("topic", {}).get("tema")) and topic_retry < 5:
+                    topic_retry += 1
+                    print(f"  📡 Gerando tema exclusivo sob demanda para {b_name}/{v_name} (Tentativa {topic_retry}/5)...")
+                    try:
+                        fresh_cands = self.proposer_agent.generate_topics(
+                            count=4,
+                            blacklist=self.checkpoint_mgr.get_blacklist_titles(),
+                            status_callback=lambda m: print(f"    📡 {m}")
+                        )
+                        for cand in (fresh_cands if isinstance(fresh_cands, list) else [fresh_cands]):
+                            if not isinstance(cand, dict) or not cand.get("tema"):
+                                continue
+                            is_blk, blk_reason = self.checkpoint_mgr.is_in_blacklist(cand, threshold=0.60, ai_auditor=self.semantic_auditor)
+                            if not is_blk:
+                                ckpt["topic"] = cand
+                                ckpt["status"] = "TOPIC_READY"
+                                ckpt["error"] = None
+                                save_video_metadata_file(v_dir, cand)
+                                ckpt["metadata_file"] = "metadata.txt"
+                                self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                                self.checkpoint_mgr.add_to_blacklist(cand, b_name, v_name)
+                                print(f"  🎯 TEMA ALOCADO DINAMICAMENTE: \"{cand.get('tema')}\"")
+                                break
+                    except Exception as e:
+                        app_logger.warning(f"[AutoPipeline] Erro ao alocar tema sob demanda: {str(e)}")
+                        time.sleep(1.5)
 
                 selected_topic = ckpt.get("topic")
                 if not selected_topic or not isinstance(selected_topic, dict) or not selected_topic.get("tema"):
@@ -738,20 +767,19 @@ class AutoPipelineRunner:
         print(f"✅ Pré-voo concluído: {api_msg}\n")
 
         current_batch, current_video = self.checkpoint_mgr.get_next_pending_target()
-        if start_batch is not None:
-            current_batch = start_batch
-
-        print(f"🎯 Ponto de início determinado: batch_{current_batch} (vídeo pendente: video_{current_video})")
-
         batch_count = 0
         while RUNNING and batch_count < max_batches:
+            current_batch, current_video = self.checkpoint_mgr.get_next_pending_target()
+            if start_batch is not None and batch_count == 0:
+                current_batch = start_batch
+
+            print(f"\n🎯 [Alvo de Execução] Processando {f'batch_{current_batch}'} (vídeo pendente: {f'video_{current_video}'})...")
             success = self.run_batch(current_batch)
             if not RUNNING:
                 break
 
-            current_batch += 1
             batch_count += 1
-            print(f"\n⏳ Pausa de 5 segundos antes de iniciar o próximo batch...")
+            print(f"\n⏳ Pausa de 5 segundos antes de verificar o próximo lote pendente...")
             time.sleep(5)
 
         print("\n🏁 Execução do AutoPipeline finalizada.")

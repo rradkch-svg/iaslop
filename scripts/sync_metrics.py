@@ -28,6 +28,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
+from analytics_parser import DEFAULT_ANALYTICS_PARSER
 
 def sync_from_csv(csv_path: str, memory_sys: AlgorithmMemorySystem) -> int:
     """Lê linhas de METRICAS_VIDEOS.csv e sincroniza com a memória algorítmica."""
@@ -86,8 +87,11 @@ def main():
     print("📈 MINUTO INEXPLICÁVEL — SINCRONIZAÇÃO DE MÉTRICAS & FEEDBACK DA IA")
     print("=" * 70)
     
-    synced = sync_from_csv(args.csv, DEFAULT_ALGORITHM_MEMORY)
-    print(f"\n✅ Total de {synced} registros sincronizados com a Memória Algorítmica.")
+    synced_csv = sync_from_csv(args.csv, DEFAULT_ALGORITHM_MEMORY)
+    print(f"✅ Sincronizados {synced_csv} registros a partir de METRICAS_VIDEOS.csv.")
+
+    synced_analytics = DEFAULT_ANALYTICS_PARSER.sync_with_memory_system(DEFAULT_ALGORITHM_MEMORY)
+    print(f"✅ Sincronizados {synced_analytics} registros a partir da pasta /analytics.")
     print(f"📄 Resumo analítico atualizado em: {DEFAULT_ALGORITHM_MEMORY.memory_md_file}")
     
     weights = DEFAULT_ALGORITHM_MEMORY.load_weights()
