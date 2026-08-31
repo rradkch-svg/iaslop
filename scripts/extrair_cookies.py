@@ -11,12 +11,9 @@ if hasattr(sys.stdout, "reconfigure"):
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_COOKIES = os.path.join(PROJECT_ROOT, "cookies.txt")
 
-def main():
-    print("=" * 70)
-    print("🍪 EXTRATOR AUTOMÁTICO DE COOKIES DO YOUTUBE")
-    print("=" * 70)
-    print("\n[*] Tentando extrair cookies de sessão do YouTube dos navegadores...")
-
+def export_youtube_cookies(output_file: str = None, verbose: bool = False) -> str:
+    """Extrai cookies dos navegadores suportados e salva no formato Netscape."""
+    target_path = output_file or OUTPUT_COOKIES
     extracted_cookies = []
 
     # 1. Tentativa via rookiepy (suporte a Edge, Chrome, Brave, Firefox)
@@ -33,7 +30,8 @@ def main():
             try:
                 c = getter(domains=[".youtube.com", "youtube.com", ".google.com"])
                 if c:
-                    print(f"  ✅ {len(c)} cookies encontrados no {name}!")
+                    if verbose:
+                        print(f"  ✅ {len(c)} cookies encontrados no {name}!")
                     extracted_cookies.extend(c)
             except Exception:
                 pass
@@ -57,7 +55,8 @@ def main():
                             "value": c.value
                         })
                     if extracted_cookies:
-                        print(f"  ✅ Cookies extraídos via browser_cookie3 ({b_name})!")
+                        if verbose:
+                            print(f"  ✅ Cookies extraídos via browser_cookie3 ({b_name})!")
                         break
                 except Exception:
                     pass
@@ -65,8 +64,8 @@ def main():
             pass
 
     if extracted_cookies:
-        # Grava no formato Netscape HTTP Cookie File reconhecido pelo yt-dlp e curl
-        with open(OUTPUT_COOKIES, "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+        with open(target_path, "w", encoding="utf-8") as f:
             f.write("# Netscape HTTP Cookie File\n")
             f.write("# Gerado automaticamente pelo Minuto Inexplicável Studio\n")
             f.write("# Permite downloads do YouTube sem bloqueios de bot / rate limits\n\n")
@@ -83,8 +82,18 @@ def main():
                 if key not in seen_keys and name and value:
                     seen_keys.add(key)
                     f.write(f"{domain}\t{flag}\t{path}\t{secure}\t{expires}\t{name}\t{value}\n")
+        return target_path
+    return None
 
-        print(f"\n🎉 SUCESSO! Arquivo gravado em: {OUTPUT_COOKIES} ({os.path.getsize(OUTPUT_COOKIES)} bytes)")
+def main():
+    print("=" * 70)
+    print("🍪 EXTRATOR AUTOMÁTICO DE COOKIES DO YOUTUBE")
+    print("=" * 70)
+    print("\n[*] Tentando extrair cookies de sessão do YouTube dos navegadores...")
+
+    result = export_youtube_cookies(OUTPUT_COOKIES, verbose=True)
+    if result and os.path.exists(result):
+        print(f"\n🎉 SUCESSO! Arquivo gravado em: {result} ({os.path.getsize(result)} bytes)")
         print("💡 O yt-dlp agora usará esses cookies automaticamente em todos os downloads!")
     else:
         print("\n⚠️ Nenhum cookie de sessão do YouTube pôde ser extraído automaticamente.")

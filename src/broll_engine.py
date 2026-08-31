@@ -53,6 +53,19 @@ def find_cookies_file() -> Optional[str]:
     for c in candidates:
         if os.path.exists(c) and os.path.getsize(c) > 50:
             return c
+
+    # Fallback: Tenta auto-extração dos navegadores instalados
+    try:
+        import sys
+        scripts_dir = os.path.join(root_dir, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import extrair_cookies
+        res = extrair_cookies.export_youtube_cookies(os.path.join(root_dir, "cookies.txt"))
+        if res and os.path.exists(res) and os.path.getsize(res) > 50:
+            return res
+    except Exception:
+        pass
     return None
 
 def find_ffmpeg_binary() -> str:

@@ -14,6 +14,8 @@ api_key.txt
 gemini-key.txt
 *.key
 *.secret
+*cookies*.txt
+cookies.txt
 
 
 # Logs, checkpoints, and data
