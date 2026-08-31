@@ -361,17 +361,16 @@ class AutoPipelineRunner:
 
         with LogSpan(f"process_single_video_{b_name}_{v_name}"):
             res_stage, ckpt = self.checkpoint_mgr.determine_video_resume_stage(batch_idx, video_idx)
-            stage = ckpt.get("status", res_stage)
+            stage = res_stage
 
-            if stage in ("COMPLETED", "RENDER_COMPLETED"):
-                final_v = os.path.join(v_dir, ckpt.get("final_video", "final_output.mp4"))
+            if stage == "COMPLETED":
+                final_v = ckpt.get("final_video_path") or os.path.join(v_dir, "final_output.mp4")
                 if not os.path.exists(final_v):
-                    final_v = os.path.join(v_dir, ckpt.get("final_video_file", "final_video.mp4"))
-                if os.path.exists(final_v) and os.path.getsize(final_v) > 1000:
+                    final_v = os.path.join(v_dir, "final_video.mp4")
+                if os.path.exists(final_v) and os.path.getsize(final_v) > 100_000:
                     print(f"  ✨ Vídeo já concluído e renderizado anteriormente: {final_v}")
                     return True
                 else:
-                    print("  ⚠️ Checkpoint indicava RENDER_COMPLETED, mas o arquivo de vídeo não existe. Re-executando render...")
                     stage = "RENDER_FINAL"
 
             # ETAPA 1: GERAÇÃO E ESCOLHA DE TEMA INÉDITO (PROPOSER AGENT + BLACKLIST SEMÂNTICA)
@@ -653,7 +652,10 @@ class AutoPipelineRunner:
                             "is_fallback": True
                         })
                     else:
-                        raise Exception(f"Nenhum clipe de vídeo real auditado disponível para a cena {sc_id}")
+                        app_logger.warning(f"[AutoPipeline] Nenhum clipe de vídeo real auditado disponível para {b_name}/{v_name}. Marcando para re-download de B-Roll.")
+                        ckpt["status"] = "PROCESS_SCENES"
+                        self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                        return False
 
                 try:
                     bgm_track = self.bgm_engine.get_bgm_for_topic(

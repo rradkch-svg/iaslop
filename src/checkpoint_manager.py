@@ -547,13 +547,24 @@ class CheckpointManager:
         if not os.path.exists(subtitles_ass) or os.path.getsize(subtitles_ass) < 10:
             return "GENERATE_SUBTITLES", ckpt
 
-        # 6. Verifica se todos os clipes de cenas existem no disco
+        # 6. Verifica se clipes de cenas existem no disco
+        scenes_media = ckpt.get("scenes_media", {})
         scene_clips = ckpt.get("scene_clips", [])
-        all_scenes_exist = False
-        if scene_clips and len(scene_clips) >= min(len(storyboard), 3):
-            all_scenes_exist = all(os.path.exists(cp) and os.path.getsize(cp) > 10_000 for cp in scene_clips)
+        has_valid_scenes = False
 
-        if not all_scenes_exist:
+        if scenes_media and isinstance(scenes_media, dict):
+            has_valid_scenes = any(
+                os.path.exists(m.get("video_file", "") or m.get("file", "")) and
+                os.path.getsize(m.get("video_file", "") or m.get("file", "")) > 10_000
+                for m in scenes_media.values() if isinstance(m, dict)
+            )
+        elif scene_clips and isinstance(scene_clips, list):
+            has_valid_scenes = any(
+                os.path.exists(cp) and os.path.getsize(cp) > 10_000
+                for cp in scene_clips
+            )
+
+        if not has_valid_scenes:
             return "PROCESS_SCENES", ckpt
 
         # 7. Todas as partes estão prontas, falta renderizar
