@@ -165,12 +165,10 @@ def build_topic_queries(global_topic: str, base_query: str) -> List[str]:
     has_anchor = any(t in base_lower for t in t_tokens) if t_tokens else False
     
     if base_clean:
-        if has_anchor:
-            queries.append(base_clean)
-            if not base_lower.endswith("4k") and not base_lower.endswith("hd"):
-                queries.append(f"{base_clean} 4k")
-        else:
-            # Ancora obrigatoriamente a query com o tema central
+        queries.append(base_clean)
+        if not base_lower.endswith("4k") and not base_lower.endswith("hd"):
+            queries.append(f"{base_clean} 4k")
+        if not has_anchor and topic_kw:
             anchored = f"{topic_kw} {base_clean}".strip()
             queries.append(anchored)
             queries.append(f"{anchored} 4k")

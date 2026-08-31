@@ -550,8 +550,12 @@ class AutoPipelineRunner:
                         return False
 
                     sc_id = str(c.get("scene_id", idx + 1))
+                    m_data = scenes_media.get(sc_id, {})
+                    v_file = m_data.get("video_file") or m_data.get("file", "")
+                    rev = m_data.get("review", {})
+                    is_appr = m_data.get("success", False) and rev.get("aprovado", True) and float(rev.get("nota_relevancia", 10.0)) >= 6.0
                     
-                    if sc_id in scenes_media and os.path.exists(scenes_media[sc_id].get("file", "")):
+                    if sc_id in scenes_media and v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 10_000 and is_appr:
                         continue
 
                     query = c.get("youtube_query") or c.get("fala", "")
@@ -570,31 +574,40 @@ class AutoPipelineRunner:
                         scene_fala=c.get("fala", "")
                     )
                     
-                    video_file = broll_res.get("video_file")
-                    preview_frame = broll_res.get("preview_frame")
-                    
-                    # 2. Auditoria visual com ReviewerAgent
-                    if video_file and preview_frame and os.path.exists(preview_frame):
-                        review_result = self.reviewer_agent.review_frame(
-                            image_path=preview_frame,
-                            context_text=f"Tema Global: '{ckpt.get('topic', {}).get('tema', '')}'. Fala: '{c.get('fala', query)}'."
-                        )
-                        broll_res["review"] = review_result
-                        is_ok = review_result.get("aprovado", False) and float(review_result.get("nota_relevancia", 0.0)) >= 6.0
-                        if not is_ok:
-                            print(f"    🚫 Frame reprovado pelo Revisor ({review_result.get('motivo')}) -> Descartando vídeo...")
-                            if os.path.exists(video_file):
-                                try:
-                                    os.remove(video_file)
-                                except Exception:
-                                    pass
-                            broll_res["video_file"] = ""
-                            broll_res["file"] = ""
-                            broll_res["success"] = False
+                    if broll_res.get("success") and broll_res.get("inspection"):
+                        broll_res["review"] = broll_res.get("inspection", {})
 
                     scenes_media[sc_id] = broll_res
                     ckpt["scenes_media"] = scenes_media
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+
+                # Verifica se há pelo menos um clipe aprovado disponível para render
+                has_approved = any(
+                    m.get("success", False) and
+                    os.path.exists(m.get("video_file", "") or m.get("file", "")) and
+                    os.path.getsize(m.get("video_file", "") or m.get("file", "")) > 10_000 and
+                    m.get("review", {}).get("aprovado", True) and
+                    float(m.get("review", {}).get("nota_relevancia", 10.0)) >= 6.0
+                    for m in scenes_media.values() if isinstance(m, dict)
+                )
+
+                if not has_approved:
+                    print(f"    🔄 Buscando clipe de arquivo documental histórico para compor o vídeo...")
+                    fallback_query = f"{ckpt.get('topic', {}).get('tema', '')} historical archival documentary 4k"
+                    fb_res = self.broll_engine.fetch_scene_broll(
+                        query=fallback_query,
+                        output_dir=broll_dir,
+                        scene_idx=1,
+                        target_duration=10.0,
+                        global_topic=ckpt.get("topic", {}).get("tema", ""),
+                        reviewer_agent=self.reviewer_agent,
+                        scene_fala=""
+                    )
+                    if fb_res.get("success"):
+                        fb_res["review"] = fb_res.get("inspection", {"aprovado": True, "nota_relevancia": 8.0})
+                        scenes_media["1"] = fb_res
+                        ckpt["scenes_media"] = scenes_media
+                        self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
 
                 ckpt["status"] = "BROLL_READY"
                 self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)

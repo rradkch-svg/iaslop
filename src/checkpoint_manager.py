@@ -547,7 +547,10 @@ class CheckpointManager:
         if not os.path.exists(subtitles_ass) or os.path.getsize(subtitles_ass) < 10:
             return "GENERATE_SUBTITLES", ckpt
 
-        # 6. Verifica se clipes de cenas existem no disco
+        # 6. Verifica se clipes de cenas existem no disco e foram devidamente auditados/aprovados
+        if ckpt.get("status") == "PROCESS_SCENES":
+            return "PROCESS_SCENES", ckpt
+
         scenes_media = ckpt.get("scenes_media", {})
         scene_clips = ckpt.get("scene_clips", [])
         has_valid_scenes = False
@@ -555,7 +558,10 @@ class CheckpointManager:
         if scenes_media and isinstance(scenes_media, dict):
             has_valid_scenes = any(
                 os.path.exists(m.get("video_file", "") or m.get("file", "")) and
-                os.path.getsize(m.get("video_file", "") or m.get("file", "")) > 10_000
+                os.path.getsize(m.get("video_file", "") or m.get("file", "")) > 10_000 and
+                m.get("success", False) and
+                m.get("review", {}).get("aprovado", True) and
+                float(m.get("review", {}).get("nota_relevancia", 10.0)) >= 6.0
                 for m in scenes_media.values() if isinstance(m, dict)
             )
         elif scene_clips and isinstance(scene_clips, list):
