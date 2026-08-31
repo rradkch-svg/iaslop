@@ -5,6 +5,9 @@ Script utilitário para exportar cookies do YouTube dos navegadores instalados n
 import os
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_COOKIES = os.path.join(PROJECT_ROOT, "cookies.txt")
 
