@@ -336,6 +336,7 @@ class BRollEngine:
                     "default_search": f"ytsearch{self.max_search_results}",
                     "noplaylist": True,
                     "remote_components": ["ejs:github"],
+                    "sleep_interval_requests": 1,
                 }
                 ydl_opts_search.update(get_ytdlp_cookie_opts())
 
@@ -383,6 +384,7 @@ class BRollEngine:
                 if not candidates:
                     continue
 
+                consecutive_rate_limits = 0
                 for cand in candidates:
                     vid_id = cand.get("id")
                     vid_title = cand.get("title", current_q)
@@ -396,6 +398,8 @@ class BRollEngine:
                             app_logger.info(f"[BRollEngine] Candidato '{vid_title}' descartado pelo pré-filtro: {pre_reason}")
                             continue
 
+                    # Pausa suave preventiva entre requisições de candidatos para evitar burst rate-limit
+                    time.sleep(random.uniform(0.8, 1.5))
                     safe_status(status_callback, f"📥 Baixando candidato: **{vid_title[:45]}...**")
 
                     temp_raw_file = os.path.join(tempfile.gettempdir(), f"broll_{vid_id}_{int(time.time()*1000)}_{threading.get_ident()}.mp4")
@@ -409,6 +413,7 @@ class BRollEngine:
                         "no_warnings": True,
                         "noplaylist": True,
                         "socket_timeout": 20,
+                        "sleep_interval_requests": 1,
                         "remote_components": ["ejs:github"],
                         "http_headers": {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -416,7 +421,7 @@ class BRollEngine:
                         },
                         "extractor_args": {
                             "youtube": {
-                                "player_client": ["android", "ios", "mweb", "web"]
+                                "player_client": ["web", "mweb"]
                             }
                         }
                     }
@@ -577,10 +582,28 @@ class BRollEngine:
                                 err_str = str(retry_err)
 
                         if err_str:
+                            is_session_blocked = "rate-limited by youtube" in err_str.lower() or "this content isn't available, try again later" in err_str.lower()
+                            if is_session_blocked:
+                                consecutive_rate_limits += 1
+                                if consecutive_rate_limits >= 2:
+                                    app_logger.warning(f"[BRollEngine] 🛑 YouTube sinalizou rate-limit ativo na sessão ({vid_id}). Interrompendo candidatos desta busca para resfriamento.")
+                                    if os.path.exists(temp_raw_file):
+                                        try:
+                                            os.remove(temp_raw_file)
+                                        except:
+                                            pass
+                                    if os.path.exists(temp_cut_clip):
+                                        try:
+                                            os.remove(temp_cut_clip)
+                                        except:
+                                            pass
+                                    break
+                                time.sleep(random.uniform(4.0, 7.0))
+
                             is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower() or "throttl" in err_str.lower()
                             if is_dl_throttled:
                                 record_throttling("YOUTUBE_DOWNLOAD", "HTTP_429_DOWNLOAD_THROTTLE", f"Download no YouTube sob rate limit ({vid_id}): {err_str[:150]}", retry_after=15)
-                                time.sleep(1.5)
+                                time.sleep(2.0)
                             app_logger.warning(f"[BRollEngine] Erro no candidato {vid_id}: {err_str}")
                             if os.path.exists(temp_raw_file):
                                 try:
