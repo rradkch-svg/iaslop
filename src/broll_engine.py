@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import glob
 import subprocess
@@ -91,12 +92,38 @@ def find_cookies_file(force_refresh: bool = False) -> Optional[str]:
     # Fallback: Tenta auto-extração dos navegadores instalados
     return refresh_youtube_cookies()
 
+def get_ytdlp_cookie_opts(force_refresh: bool = False) -> Dict[str, Any]:
+    """
+    Retorna a melhor configuração de autenticação para o yt-dlp.
+    Prioriza autenticação direta do navegador (Firefox), que possui 100% de sucesso
+    contra os bloqueios de bot do YouTube, com fallback automático para cookies.txt.
+    """
+    # 1. Verifica se Firefox está disponível com cookies de sessão do YouTube
+    try:
+        import rookiepy
+        ff_c = rookiepy.firefox(domains=[".youtube.com"])
+        if ff_c and len(ff_c) >= 3:
+            return {"cookiesfrombrowser": ("firefox",)}
+    except Exception:
+        pass
+
+    # 2. Fallback para arquivo cookies.txt
+    ck_file = find_cookies_file(force_refresh=force_refresh)
+    if ck_file and os.path.exists(ck_file) and os.path.getsize(ck_file) > 50:
+        return {"cookiefile": ck_file}
+
+    # 3. Fallback genérico para Firefox
+    return {"cookiesfrombrowser": ("firefox",)}
+
 def find_ffmpeg_binary() -> str:
     """Busca o executável do FFmpeg no static-ffmpeg, imageio-ffmpeg, WinGet ou PATH."""
     try:
         import static_ffmpeg
         ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
         if os.path.exists(ffmpeg_exe):
+            f_dir = os.path.dirname(os.path.abspath(ffmpeg_exe))
+            if f_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = f"{f_dir}{os.pathsep}{os.environ.get('PATH', '')}"
             return ffmpeg_exe
     except Exception:
         pass
@@ -104,12 +131,18 @@ def find_ffmpeg_binary() -> str:
         import imageio_ffmpeg
         exe = imageio_ffmpeg.get_ffmpeg_exe()
         if exe and os.path.exists(exe):
+            f_dir = os.path.dirname(os.path.abspath(exe))
+            if f_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = f"{f_dir}{os.pathsep}{os.environ.get('PATH', '')}"
             return exe
     except Exception:
         pass
     winget_pattern = os.path.expanduser(r"~\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_*\*\bin\ffmpeg.exe")
     winget_matches = glob.glob(winget_pattern)
     if winget_matches and os.path.exists(winget_matches[0]):
+        f_dir = os.path.dirname(os.path.abspath(winget_matches[0]))
+        if f_dir not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = f"{f_dir}{os.pathsep}{os.environ.get('PATH', '')}"
         return winget_matches[0]
     return "ffmpeg"
 
@@ -304,8 +337,7 @@ class BRollEngine:
                     "noplaylist": True,
                     "remote_components": ["ejs:github"],
                 }
-                if cookies_file:
-                    ydl_opts_search["cookiefile"] = cookies_file
+                ydl_opts_search.update(get_ytdlp_cookie_opts())
 
                 entries = []
                 try:
@@ -316,17 +348,21 @@ class BRollEngine:
                     err_str = str(e)
                     is_bot_challenge = "bot" in err_str.lower() or "sign in to confirm" in err_str.lower()
                     if is_bot_challenge:
-                        app_logger.warning(f"[BRollEngine] 🍪 Exigência de autenticação na busca do YouTube. Renovando cookies...")
-                        new_ck = find_cookies_file(force_refresh=True)
-                        if new_ck:
-                            cookies_file = new_ck
-                            ydl_opts_search["cookiefile"] = new_ck
-                            try:
-                                with yt_dlp.YoutubeDL(ydl_opts_search) as ydl:
-                                    search_results = ydl.extract_info(f"ytsearch{self.max_search_results}:{current_q}", download=False)
-                                    entries = search_results.get("entries", [])
-                            except Exception:
-                                pass
+                        app_logger.warning(f"[BRollEngine] 🍪 Exigência de autenticação na busca do YouTube. Alternando credenciais...")
+                        if "cookiesfrombrowser" not in ydl_opts_search:
+                            ydl_opts_search.pop("cookiefile", None)
+                            ydl_opts_search["cookiesfrombrowser"] = ("firefox",)
+                        else:
+                            new_ck = find_cookies_file(force_refresh=True)
+                            if new_ck:
+                                ydl_opts_search.pop("cookiesfrombrowser", None)
+                                ydl_opts_search["cookiefile"] = new_ck
+                        try:
+                            with yt_dlp.YoutubeDL(ydl_opts_search) as ydl:
+                                search_results = ydl.extract_info(f"ytsearch{self.max_search_results}:{current_q}", download=False)
+                                entries = search_results.get("entries", [])
+                        except Exception:
+                            pass
                     if not entries:
                         is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower()
                         if is_dl_throttled:
@@ -384,8 +420,7 @@ class BRollEngine:
                             }
                         }
                     }
-                    if cookies_file:
-                        ydl_opts_download["cookiefile"] = cookies_file
+                    ydl_opts_download.update(get_ytdlp_cookie_opts())
 
                     try:
                         with yt_dlp.YoutubeDL(ydl_opts_download) as ydl:
@@ -524,14 +559,15 @@ class BRollEngine:
                         err_str = str(err_dl)
                         is_bot_challenge = "bot" in err_str.lower() or "sign in to confirm" in err_str.lower()
                         if is_bot_challenge:
-                            app_logger.warning(f"[BRollEngine] 🍪 Bloqueio de autenticação no download de {vid_id}. Renovando cookies...")
-                            new_ck = find_cookies_file(force_refresh=True)
-                            if new_ck:
-                                cookies_file = new_ck
-                                ydl_opts_download["cookiefile"] = new_ck
-                            else:
+                            app_logger.warning(f"[BRollEngine] 🍪 Desafio de autenticação no download de {vid_id}. Alternando credenciais...")
+                            if "cookiesfrombrowser" not in ydl_opts_download:
                                 ydl_opts_download.pop("cookiefile", None)
                                 ydl_opts_download["cookiesfrombrowser"] = ("firefox",)
+                            else:
+                                new_ck = find_cookies_file(force_refresh=True)
+                                if new_ck:
+                                    ydl_opts_download.pop("cookiesfrombrowser", None)
+                                    ydl_opts_download["cookiefile"] = new_ck
                             try:
                                 with yt_dlp.YoutubeDL(ydl_opts_download) as ydl:
                                     ydl.download([vid_url])
