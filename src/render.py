@@ -25,6 +25,42 @@ except ImportError:
     except ImportError:
         DEFAULT_SFX_ENGINE = None
 
+def get_media_duration(file_path: str, ffmpeg_bin: Optional[str] = None) -> Optional[float]:
+    """Obtém a duração precisa de um arquivo de mídia em segundos."""
+    if not file_path or not os.path.exists(file_path):
+        return None
+    f_bin = ffmpeg_bin or find_ffmpeg_binary()
+    probe_bin = "ffprobe"
+    try:
+        import static_ffmpeg
+        _, ffprobe_exe = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
+        if os.path.exists(ffprobe_exe):
+            probe_bin = ffprobe_exe
+    except Exception:
+        if "ffmpeg.exe" in f_bin:
+            probe_cand = f_bin.replace("ffmpeg.exe", "ffprobe.exe")
+            if os.path.exists(probe_cand):
+                probe_bin = probe_cand
+
+    try:
+        cmd = [probe_bin, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file_path]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        dur = float(res.stdout.strip())
+        if dur > 0:
+            return dur
+    except Exception:
+        pass
+    try:
+        res = subprocess.run([f_bin, "-i", file_path], capture_output=True, text=True, timeout=10)
+        import re
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)", res.stderr)
+        if m:
+            h, mins, s = map(float, m.groups())
+            return h * 3600 + mins * 60 + s
+    except Exception:
+        pass
+    return None
+
 def assemble_multi_scene_video(
     clip_paths: Optional[List[Any]] = None,
     audio_path: Optional[str] = None,
@@ -38,6 +74,7 @@ def assemble_multi_scene_video(
     media_scenes: Optional[List[Any]] = None,
     topic_context: Optional[Dict[str, Any]] = None,
     status_callback = None,
+    outro_padding: float = 1.8,
     *args,
     **kwargs
 ) -> Tuple[bool, str]:
@@ -45,6 +82,7 @@ def assemble_multi_scene_video(
     Concatena múltiplos clipes 9:16, aplica tratamento de resolução HD e nitidez,
     funde com narração de voz, trilha sonora BGM (ducking) e efeitos sonoros SFX (whooshes, sinos, clicks)
     e queima legendas dinâmicas ASS em alta definição 1080x1920.
+    Garante finalização elegante com Outro Grace Period de 1.8s e fade-out acústico suave.
     """
     actual_clips = clip_paths or media_scenes or kwargs.get("media_scenes") or []
     actual_ass = ass_path or subtitles_path or kwargs.get("subtitles_path") or ""
@@ -133,12 +171,18 @@ def assemble_multi_scene_video(
         if status_callback:
             status_callback("🎨 Renderizando Composição Master (Vídeo HD + Voz + BGM Ducked + SFX + Legendas ASS)...")
 
+        # Duração precisa do áudio para cálculo de encerramento cinematográfico (Outro Buffer)
+        audio_dur = get_media_duration(actual_audio, ffmpeg_bin) or 60.0
+        total_target_dur = audio_dur + max(0.8, outro_padding)
+        fade_out_st = max(0.5, total_target_dur - 1.2)
+
         # Montagem dinâmica do comando FFmpeg
         # input 0 = combined_scenes_mp4 (video), input 1 = actual_audio (voice)
         cmd_inputs = [ffmpeg_bin, "-y", "-i", combined_scenes_mp4, "-i", actual_audio]
         current_input_idx = 2
 
-        filter_complex_parts = [f"[1:a]volume=1.0[voice]"]
+        # Voice track com apad para manter o BGM e a cena final ressoando com elegância após a última palavra
+        filter_complex_parts = [f"[1:a]apad=pad_dur={outro_padding:.2f},volume=1.0[voice]"]
         audio_mix_inputs = ["[voice]"]
 
         # Entrada 2: BGM
@@ -157,20 +201,22 @@ def assemble_multi_scene_video(
             filter_complex_parts.append(f"[{sfx_in_idx}:a]volume={sfx_volume:.3f}[sfx]")
             audio_mix_inputs.append("[sfx]")
 
-        # Mixagem de áudio
+        # Mixagem de áudio com fade out acústico suave no desfecho
         if len(audio_mix_inputs) > 1:
-            mix_str = "".join(audio_mix_inputs) + f"amix=inputs={len(audio_mix_inputs)}:duration=first:dropout_transition=2[aout]"
+            mix_str = "".join(audio_mix_inputs) + f"amix=inputs={len(audio_mix_inputs)}:duration=first:dropout_transition=2,afade=t=out:st={fade_out_st:.2f}:d=1.2[aout]"
             filter_complex_parts.append(mix_str)
             audio_map = "[aout]"
         else:
-            audio_map = "1:a"
+            filter_complex_parts.append(f"[voice]afade=t=out:st={fade_out_st:.2f}:d=1.2[aout]")
+            audio_map = "[aout]"
 
-        # Legendas ASS no vídeo
+        # Legendas ASS e tpad no vídeo para garantir zero corte seco ou falta de frames
+        video_filters = ["tpad=stop_mode=clone:stop_duration=4.0"]
         if has_ass:
-            filter_complex_parts.insert(0, f"[0:v]ass='{safe_ass_path}'[vout]")
-            video_map = "[vout]"
-        else:
-            video_map = "0:v"
+            video_filters.append(f"ass='{safe_ass_path}'")
+        
+        filter_complex_parts.insert(0, f"[0:v]{','.join(video_filters)}[vout]")
+        video_map = "[vout]"
 
         cmd_final = list(cmd_inputs)
         if filter_complex_parts:

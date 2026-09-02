@@ -46,7 +46,7 @@ try:
     from .pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from .audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
-    from .broll_engine import BRollEngine, find_ffmpeg_binary
+    from .broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
@@ -71,7 +71,7 @@ except ImportError:
     from pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
-    from broll_engine import BRollEngine, find_ffmpeg_binary
+    from broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
     from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
@@ -545,6 +545,15 @@ class AutoPipelineRunner:
                 
                 scenes_media = ckpt.get("scenes_media", {})
                 
+                total_audio_dur = ckpt.get("audio_duration", 60.0)
+                words_timing = ckpt.get("words_timing", [])
+                target_durations = calculate_scene_durations(
+                    cenas=cenas,
+                    total_audio_duration=total_audio_dur,
+                    words_timing=words_timing,
+                    tail_overhead=1.8
+                )
+                
                 for idx, c in enumerate(cenas):
                     if not RUNNING:
                         return False
@@ -559,9 +568,9 @@ class AutoPipelineRunner:
                         continue
 
                     query = c.get("youtube_query") or c.get("fala", "")
-                    dur_est = float(c.get("duracao_estimada", 5.0))
+                    dur_est = target_durations[idx] if idx < len(target_durations) else float(c.get("duracao_estimada", 5.0))
                     
-                    print(f"    🔍 Cena {sc_id}/{len(cenas)}: Buscando '{query}'...")
+                    print(f"    🔍 Cena {sc_id}/{len(cenas)}: Buscando '{query}' ({dur_est:.1f}s)...")
                     
                     # 1. Busca e baixa segmento do YouTube com auditoria visual rigorosa
                     broll_res = self.broll_engine.fetch_scene_broll(
@@ -629,6 +638,15 @@ class AutoPipelineRunner:
                 cenas = ckpt.get("storyboard", [])
                 scenes_media = ckpt.get("scenes_media", {})
                 
+                total_audio_dur = ckpt.get("audio_duration", 60.0)
+                words_timing = ckpt.get("words_timing", [])
+                target_durations = calculate_scene_durations(
+                    cenas=cenas,
+                    total_audio_duration=total_audio_dur,
+                    words_timing=words_timing,
+                    tail_overhead=1.8
+                )
+
                 # Monta a lista ordenada de segmentos de vídeo para cada cena (100% vídeos reais e auditados)
                 media_list = []
                 available_video_files = []
@@ -645,7 +663,7 @@ class AutoPipelineRunner:
                     sc_id = str(c.get("scene_id", idx + 1))
                     m_data = scenes_media.get(sc_id, {})
                     v_file = m_data.get("video_file")
-                    dur = float(c.get("duracao_estimada", 5.0))
+                    dur = target_durations[idx] if idx < len(target_durations) else float(c.get("duracao_estimada", 5.0))
                     review_data = m_data.get("review", {})
                     is_appr = m_data.get("success", False) and review_data.get("aprovado", True) and float(review_data.get("nota_relevancia", 10.0)) >= 6.0
                     if v_file and os.path.exists(v_file) and os.path.getsize(v_file) > 0 and is_appr:
@@ -762,6 +780,10 @@ class AutoPipelineRunner:
                 if not RUNNING:
                     return False
                 print(f"  ⚠️ Aviso: video_{v_idx} do {b_name} não pôde ser completado. Continuando...")
+
+        # Gera o script de limpeza de conteúdo do batch preservando exclusivamente os metadados
+        cleanup_file = self.checkpoint_mgr.generate_batch_cleanup_script(batch_idx)
+        print(f"🧹 Arquivo de limpeza de conteúdo do batch criado: {cleanup_file}")
 
         print(f"\n📊 RESUMO DO {b_name.upper()}: {completed_count}/{self.videos_per_batch} vídeos concluídos.")
         return completed_count == self.videos_per_batch

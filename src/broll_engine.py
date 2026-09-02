@@ -207,7 +207,7 @@ def calculate_scene_durations(
     cenas: List[Dict[str, Any]],
     total_audio_duration: float,
     words_timing: Optional[List[Dict[str, Any]]] = None,
-    tail_overhead: float = 0.5
+    tail_overhead: float = 1.8
 ) -> List[float]:
     """
     Calcula dinamicamente a duração ideal de cada cena no storyboard baseando-se no número de palavras
@@ -574,7 +574,7 @@ class BRollEngine:
         project_dir: str,
         total_audio_duration: float,
         words_timing: Optional[List[Dict[str, Any]]] = None,
-        tail_overhead: float = 0.5,
+        tail_overhead: float = 1.8,
         max_workers: int = 4,
         status_callback = None,
         progress_callback = None
