@@ -46,7 +46,7 @@ try:
     from .pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from .algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from .audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
-    from .broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations
+    from .broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations, find_cookies_file
     from .subtitles import convert_words_to_ass
     from .render import assemble_multi_scene_video
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
@@ -71,7 +71,7 @@ except ImportError:
     from pronunciation import PronunciationEngine, DEFAULT_PRONUNCIATION_ENGINE
     from algorithm_memory import AlgorithmMemorySystem, DEFAULT_ALGORITHM_MEMORY
     from audio import AudioEngine, FALLBACK_VOICES, VOICE_PROSODY_PRESETS
-    from broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations
+    from broll_engine import BRollEngine, find_ffmpeg_binary, calculate_scene_durations, find_cookies_file
     from subtitles import convert_words_to_ass
     from render import assemble_multi_scene_video
     from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
@@ -268,6 +268,9 @@ class AutoPipelineRunner:
         print(f"🧠 Modelo de IA Primário: {self.model_name}")
         keys_pool = resolve_gemini_api_keys()
         print(f"🔑 Pool de Chaves Gemini : {len(keys_pool)} chave(s) detectada(s)")
+        cookie_p = find_cookies_file()
+        cookie_st = f"✅ Ativo ({os.path.basename(cookie_p)})" if cookie_p else "⚠️ Não detectado (auto-extração pronta)"
+        print(f"🍪 Cookies do YouTube    : {cookie_st}")
         print("=" * 75)
 
     def ensure_batch_topics(self, batch_idx: int) -> bool:

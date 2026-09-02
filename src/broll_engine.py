@@ -39,11 +39,35 @@ try:
 except Exception:
     pass
 
-def find_cookies_file() -> Optional[str]:
+def refresh_youtube_cookies() -> Optional[str]:
+    """Tenta auto-extrair cookies frescos do YouTube diretamente dos navegadores instalados."""
+    try:
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        scripts_dir = os.path.join(root_dir, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import extrair_cookies
+        target = os.path.join(root_dir, "cookies.txt")
+        res = extrair_cookies.export_youtube_cookies(target, verbose=False)
+        if res and os.path.exists(res) and os.path.getsize(res) > 50:
+            app_logger.info(f"[BRollEngine] Cookies do YouTube renovados com sucesso em {res}")
+            return res
+    except Exception as e:
+        app_logger.warning(f"[BRollEngine] Falha na auto-extração de cookies: {e}")
+    return None
+
+def find_cookies_file(force_refresh: bool = False) -> Optional[str]:
     """Procura automaticamente por arquivo de cookies do YouTube no projeto ou diretório do usuário."""
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    target_project_cookies = os.path.join(root_dir, "cookies.txt")
+
+    if force_refresh:
+        refreshed = refresh_youtube_cookies()
+        if refreshed:
+            return refreshed
+
     candidates = [
-        os.path.join(root_dir, "cookies.txt"),
+        target_project_cookies,
         os.path.join(root_dir, "youtube_cookies.txt"),
         os.path.join(root_dir, "youtube.com_cookies.txt"),
         os.path.join(os.path.expanduser("~"), "cookies.txt"),
@@ -52,21 +76,20 @@ def find_cookies_file() -> Optional[str]:
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.getsize(c) > 50:
+            # Se o arquivo for do projeto e tiver mais de 24h, tenta renovar proativamente
+            if c == target_project_cookies:
+                try:
+                    file_age_hours = (time.time() - os.path.getmtime(c)) / 3600
+                    if file_age_hours > 24:
+                        refreshed = refresh_youtube_cookies()
+                        if refreshed:
+                            return refreshed
+                except Exception:
+                    pass
             return c
 
     # Fallback: Tenta auto-extração dos navegadores instalados
-    try:
-        import sys
-        scripts_dir = os.path.join(root_dir, "scripts")
-        if scripts_dir not in sys.path:
-            sys.path.insert(0, scripts_dir)
-        import extrair_cookies
-        res = extrair_cookies.export_youtube_cookies(os.path.join(root_dir, "cookies.txt"))
-        if res and os.path.exists(res) and os.path.getsize(res) > 50:
-            return res
-    except Exception:
-        pass
-    return None
+    return refresh_youtube_cookies()
 
 def find_ffmpeg_binary() -> str:
     """Busca o executável do FFmpeg no static-ffmpeg, imageio-ffmpeg, WinGet ou PATH."""
@@ -291,11 +314,25 @@ class BRollEngine:
                         entries = search_results.get("entries", [])
                 except Exception as e:
                     err_str = str(e)
-                    is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower()
-                    if is_dl_throttled:
-                        record_throttling("YOUTUBE_DOWNLOAD", "HTTP_429_SEARCH_THROTTLE", f"Busca no YouTube sob rate limit: {err_str[:150]}", retry_after=10)
-                    app_logger.warning(f"[BRollEngine] Erro ao buscar '{current_q}': {err_str}")
-                    continue
+                    is_bot_challenge = "bot" in err_str.lower() or "sign in to confirm" in err_str.lower()
+                    if is_bot_challenge:
+                        app_logger.warning(f"[BRollEngine] 🍪 Exigência de autenticação na busca do YouTube. Renovando cookies...")
+                        new_ck = find_cookies_file(force_refresh=True)
+                        if new_ck:
+                            cookies_file = new_ck
+                            ydl_opts_search["cookiefile"] = new_ck
+                            try:
+                                with yt_dlp.YoutubeDL(ydl_opts_search) as ydl:
+                                    search_results = ydl.extract_info(f"ytsearch{self.max_search_results}:{current_q}", download=False)
+                                    entries = search_results.get("entries", [])
+                            except Exception:
+                                pass
+                    if not entries:
+                        is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower()
+                        if is_dl_throttled:
+                            record_throttling("YOUTUBE_DOWNLOAD", "HTTP_429_SEARCH_THROTTLE", f"Busca no YouTube sob rate limit: {err_str[:150]}", retry_after=10)
+                        app_logger.warning(f"[BRollEngine] Erro ao buscar '{current_q}': {err_str}")
+                        continue
 
                 candidates = []
                 with self.lock:
@@ -485,22 +522,41 @@ class BRollEngine:
 
                     except Exception as err_dl:
                         err_str = str(err_dl)
-                        is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower() or "throttl" in err_str.lower()
-                        if is_dl_throttled:
-                            record_throttling("YOUTUBE_DOWNLOAD", "HTTP_429_DOWNLOAD_THROTTLE", f"Download no YouTube sob rate limit ({vid_id}): {err_str[:150]}", retry_after=15)
-                            time.sleep(1.5)
-                        app_logger.warning(f"[BRollEngine] Erro no candidato {vid_id}: {err_str}")
-                        if os.path.exists(temp_raw_file):
+                        is_bot_challenge = "bot" in err_str.lower() or "sign in to confirm" in err_str.lower()
+                        if is_bot_challenge:
+                            app_logger.warning(f"[BRollEngine] 🍪 Bloqueio de autenticação no download de {vid_id}. Renovando cookies...")
+                            new_ck = find_cookies_file(force_refresh=True)
+                            if new_ck:
+                                cookies_file = new_ck
+                                ydl_opts_download["cookiefile"] = new_ck
+                            else:
+                                ydl_opts_download.pop("cookiefile", None)
+                                ydl_opts_download["cookiesfrombrowser"] = ("firefox",)
                             try:
-                                os.remove(temp_raw_file)
-                            except:
-                                pass
-                        if os.path.exists(temp_cut_clip):
-                            try:
-                                os.remove(temp_cut_clip)
-                            except:
-                                pass
-                        continue
+                                with yt_dlp.YoutubeDL(ydl_opts_download) as ydl:
+                                    ydl.download([vid_url])
+                                if os.path.exists(temp_raw_file) or glob.glob(temp_raw_file.replace(".mp4", ".*")):
+                                    err_str = ""
+                            except Exception as retry_err:
+                                err_str = str(retry_err)
+
+                        if err_str:
+                            is_dl_throttled = "429" in err_str or "Too Many Requests" in err_str or "rate-limit" in err_str.lower() or "bot" in err_str.lower() or "throttl" in err_str.lower()
+                            if is_dl_throttled:
+                                record_throttling("YOUTUBE_DOWNLOAD", "HTTP_429_DOWNLOAD_THROTTLE", f"Download no YouTube sob rate limit ({vid_id}): {err_str[:150]}", retry_after=15)
+                                time.sleep(1.5)
+                            app_logger.warning(f"[BRollEngine] Erro no candidato {vid_id}: {err_str}")
+                            if os.path.exists(temp_raw_file):
+                                try:
+                                    os.remove(temp_raw_file)
+                                except:
+                                    pass
+                            if os.path.exists(temp_cut_clip):
+                                try:
+                                    os.remove(temp_cut_clip)
+                                except:
+                                    pass
+                            continue
 
             app_logger.warning(f"[BRollEngine] Nenhum clipe de vídeo do YouTube aprovado para '{query}'.")
             return False, "", "", "", {"aprovado": False, "motivo": f"Nenhum clipe de vídeo do YouTube aprovado para '{query}'"}
