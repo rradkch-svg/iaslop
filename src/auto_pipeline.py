@@ -52,6 +52,7 @@ try:
     from .bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
     from .sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
     from .video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
+    from .email_service import send_batch_email, zip_batch
 except ImportError:
     from logger import app_logger, LogSpan, record_throttling
     from checkpoint_manager import CheckpointManager, VIDEOS_PER_BATCH
@@ -77,6 +78,7 @@ except ImportError:
     from bgm_engine import BGMEngine, DEFAULT_BGM_ENGINE
     from sfx_engine import SFXEngine, DEFAULT_SFX_ENGINE
     from video_enhancer import VideoResolutionEnhancer, DEFAULT_VIDEO_ENHANCER
+    from email_service import send_batch_email, zip_batch
 
 
 
@@ -195,7 +197,8 @@ class AutoPipelineRunner:
         enable_bgm: bool = True,
         bgm_volume: float = 0.12,
         enable_sfx: bool = True,
-        sfx_volume: float = 0.35
+        sfx_volume: float = 0.35,
+        email_recipient: Optional[str] = None
     ):
         self.checkpoint_mgr = CheckpointManager(root_dir=checkpoint_dir, videos_per_batch=videos_per_batch)
         self.voice = voice
@@ -211,6 +214,7 @@ class AutoPipelineRunner:
         self.bgm_volume = bgm_volume
         self.enable_sfx = enable_sfx
         self.sfx_volume = sfx_volume
+        self.email_recipient = email_recipient or os.environ.get("EMAIL_RECIPIENT", "rra.dkch@gmail.com")
 
         # Garante a chave do Gemini
         api_key = resolve_gemini_api_key()
@@ -271,6 +275,7 @@ class AutoPipelineRunner:
         cookie_p = find_cookies_file()
         cookie_st = f"✅ Ativo ({os.path.basename(cookie_p)})" if cookie_p else "⚠️ Não detectado (auto-extração pronta)"
         print(f"🍪 Cookies do YouTube    : {cookie_st}")
+        print(f"📧 Envio de Batch ZIP    : {self.email_recipient}")
         print("=" * 75)
 
     def ensure_batch_topics(self, batch_idx: int) -> bool:
@@ -789,6 +794,22 @@ class AutoPipelineRunner:
         print(f"🧹 Arquivo de limpeza de conteúdo do batch criado: {cleanup_file}")
 
         print(f"\n📊 RESUMO DO {b_name.upper()}: {completed_count}/{self.videos_per_batch} vídeos concluídos.")
+
+        if completed_count == self.videos_per_batch:
+            print(f"\n📧 Compactando e transmitindo {b_name.upper()} por e-mail para {self.email_recipient}...")
+            try:
+                email_res = send_batch_email(
+                    batch_index=batch_idx,
+                    recipient=self.email_recipient,
+                    checkpoint_dir=self.checkpoint_mgr.root_dir
+                )
+                if email_res.get("success"):
+                    print(f"  ✅ {b_name.upper()} compactado e enviado por e-mail com sucesso!")
+                else:
+                    print(f"  ℹ️ {b_name.upper()} salvo em ZIP ({email_res.get('zip_size_mb', 0):.2f} MB).")
+            except Exception as e:
+                app_logger.error(f"[AutoPipeline] Erro ao compactar/enviar e-mail do {b_name}: {e}")
+
         return completed_count == self.videos_per_batch
 
     def run_loop(self, start_batch: Optional[int] = None, max_batches: int = 20):
@@ -834,6 +855,7 @@ def main():
 
     parser.add_argument("--model", type=str, default="gemini-3.5-flash-lite", help="Modelo LLM")
     parser.add_argument("--max-batches", type=int, default=10, help="Máximo de batches a processar")
+    parser.add_argument("--recipient", type=str, default=None, help="E-mail de destino para envio dos batches zippados")
     args = parser.parse_args()
 
     if not acquire_pipeline_lock():
@@ -848,7 +870,8 @@ def main():
             voice=args.voice,
             rate=args.rate,
             pitch=args.pitch,
-            model_name=args.model
+            model_name=args.model,
+            email_recipient=args.recipient
         )
         runner.run_loop(start_batch=args.batch, max_batches=args.max_batches)
     finally:

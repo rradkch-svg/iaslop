@@ -384,6 +384,33 @@ with tab_batches:
     else:
         st.info("Blacklist vazia.")
 
+    st.markdown("---")
+    st.markdown("#### 📧 Envio Automático de Batches (ZIP por E-mail)")
+    recipient_email = os.environ.get("EMAIL_RECIPIENT", "rra.dkch@gmail.com")
+    smtp_user_cfg = os.environ.get("SMTP_USER") or os.environ.get("GMAIL_USER")
+
+    col_em1, col_em2 = st.columns([2, 1])
+    with col_em1:
+        st.write(f"**Destinatário:** `{recipient_email}`")
+        if smtp_user_cfg:
+            st.success(f"SMTP configurado: `{smtp_user_cfg}`")
+        else:
+            st.info("ℹ️ Para disparo automático via Gmail, configure `SMTP_USER` e `SMTP_PASSWORD` no `.env` (porta 465 SSL). Os arquivos ZIP continuam sendo gerados normalmente.")
+    with col_em2:
+        test_batch_num = st.number_input("Batch para Compactar/Enviar:", min_value=0, max_value=999, value=max(0, state.get("completed_batches_count", 0)), step=1)
+        if st.button("📦 Compactar & Enviar Batch"):
+            with st.spinner(f"Processando batch_{test_batch_num}..."):
+                try:
+                    from .email_service import send_batch_email
+                except ImportError:
+                    from email_service import send_batch_email
+                res = send_batch_email(int(test_batch_num))
+                if res.get("success"):
+                    st.success(f"E-mail do Batch {test_batch_num} enviado com sucesso para {res.get('recipient')}!")
+                else:
+                    st.info(f"Batch {test_batch_num} compactado em: `{res.get('zip_path')}` ({res.get('zip_size_mb', 0):.2f} MB)")
+
+
 with tab_audio_sfx:
     st.markdown("### 🔔 Sound FX & 🎵 Trilha Sonora de Suspense")
     
