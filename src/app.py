@@ -407,8 +407,10 @@ with tab_batches:
                 res = send_batch_email(int(test_batch_num))
                 if res.get("success"):
                     st.success(f"E-mail do Batch {test_batch_num} enviado com sucesso para {res.get('recipient')}!")
+                elif res.get("reason") == "missing_smtp_credentials":
+                    st.warning(f"Batch {test_batch_num} compactado localmente (`{res.get('zip_size_mb', 0):.2f} MB`). E-mail não enviado: credenciais SMTP ausentes no `.env`.")
                 else:
-                    st.info(f"Batch {test_batch_num} compactado em: `{res.get('zip_path')}` ({res.get('zip_size_mb', 0):.2f} MB)")
+                    st.error(f"Erro ao enviar e-mail: {res.get('error', 'Falha desconhecida')}. ZIP: `{res.get('zip_path')}`")
 
 
 with tab_audio_sfx:
