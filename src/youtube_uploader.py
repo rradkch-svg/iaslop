@@ -525,12 +525,16 @@ class YouTubeStudioUploader:
                 title_box.fill(title[:100])
                 time.sleep(1)
 
-                desc_box = page.locator("div#description-textarea #textbox, #textbox[aria-label*='descrição'], #textbox[aria-label*='Description']").first
-                if desc_box.is_visible():
+                desc_box = page.locator("#description-textarea #textbox, #textbox[aria-label*='Fale sobre seu vídeo'], ytcp-social-suggestions-textbox#description-textarea #textbox, div#description-textarea #textbox").first
+                try:
+                    desc_box.wait_for(state="visible", timeout=15000)
                     desc_box.click()
                     full_desc = f"{description}\n\n{' '.join(tags)}"
                     desc_box.fill(full_desc[:4900])
+                    page.keyboard.press("Escape")
                     time.sleep(1)
+                except Exception as e_desc:
+                    app_logger.warning(f"[YouTubeUploader] Erro ao preencher descrição: {e_desc}")
 
                 log("👶 Definindo restrição de audiência (Não é para crianças)...")
                 not_for_kids_radio = page.locator("tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']").first
