@@ -167,7 +167,7 @@ def zip_batch(
             pass
 
     app_logger.info(f"[EmailService] 📦 Compactando batch_{batch_index} em '{zip_file_path}'...")
-    allowed_extensions = {".mp4", ".txt", ".json", ".ass", ".mp3", ".bat", ".md"}
+    allowed_extensions = {".mp4", ".txt", ".json", ".ass", ".mp3", ".md"}
     excluded_names = {"combined_scenes.mp4", "sfx_track.wav", "scenes_concat.txt"}
 
     with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
@@ -219,7 +219,7 @@ def zip_batch_metadata(
         except Exception:
             pass
 
-    metadata_extensions = {".txt", ".json", ".ass", ".bat", ".md"}
+    metadata_extensions = {".txt", ".json", ".ass", ".md"}
     with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for root, dirs, files in os.walk(batch_dir):
             rel_root = os.path.relpath(root, batch_dir)
