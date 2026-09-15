@@ -512,69 +512,104 @@ class CheckpointManager:
             f.write(script_content)
         return script_path
 
+    def clean_single_video_media(
+        self,
+        batch_index: int,
+        video_index: int,
+        youtube_url: Optional[str] = None,
+        scheduled_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Executa limpeza física dos arquivos de mídia pesados de um único vídeo recém-postado/agendado,
+        preservando estritamente metadata.txt, checkpoint.json e dissertacao.txt.
+        Registra no checkpoint o link do YouTube e o horário de agendamento.
+        """
+        v_dir = self.get_video_dir(batch_index, video_index)
+        removed_files = 0
+        freed_bytes = 0
+
+        if not os.path.exists(v_dir):
+            return {"success": False, "error": f"Diretório não encontrado: {v_dir}", "freed_mb": 0.0}
+
+        media_extensions = {".mp4", ".mp3", ".wav", ".ass", ".jpg", ".jpeg", ".png"}
+        keep_filenames = {"metadata.txt", "checkpoint.json", "dissertacao.txt", "limpar_conteudo.bat"}
+
+        # 1. Remove pasta broll se existir
+        broll_dir = os.path.join(v_dir, "broll")
+        if os.path.exists(broll_dir):
+            try:
+                for root, _, files in os.walk(broll_dir):
+                    for file in files:
+                        fp = os.path.join(root, file)
+                        freed_bytes += os.path.getsize(fp)
+                        removed_files += 1
+                shutil.rmtree(broll_dir, ignore_errors=True)
+            except Exception as e:
+                app_logger.warning(f"[CheckpointManager] Erro ao remover broll em {v_dir}: {e}")
+
+        # 2. Remove arquivos pesados na pasta do vídeo
+        for item in os.listdir(v_dir):
+            item_path = os.path.join(v_dir, item)
+            if not os.path.isfile(item_path):
+                continue
+            if item in keep_filenames:
+                continue
+
+            _, ext = os.path.splitext(item)
+            if ext.lower() in media_extensions or item == "scenes_concat.txt":
+                try:
+                    sz = os.path.getsize(item_path)
+                    os.remove(item_path)
+                    freed_bytes += sz
+                    removed_files += 1
+                except Exception as e:
+                    app_logger.warning(f"[CheckpointManager] Erro ao deletar {item_path}: {e}")
+
+        # 3. Atualiza checkpoint do vídeo indicando que foi limpo
+        ckpt = self.load_video_checkpoint(batch_index, video_index)
+        ckpt["cleaned"] = True
+        ckpt["cleaned_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        if youtube_url:
+            ckpt["youtube_url"] = youtube_url
+        if scheduled_time:
+            ckpt["youtube_scheduled_time"] = scheduled_time
+        self.save_video_checkpoint(batch_index, video_index, ckpt)
+
+        freed_mb = round(freed_bytes / (1024 * 1024), 2)
+        app_logger.info(f"[CheckpointManager] 🧹 Limpeza individual de batch_{batch_index}/video_{video_index}: {removed_files} arquivos removidos ({freed_mb} MB liberados).")
+
+        return {
+            "success": True,
+            "batch_index": batch_index,
+            "video_index": video_index,
+            "removed_files": removed_files,
+            "freed_bytes": freed_bytes,
+            "freed_mb": freed_mb,
+            "youtube_url": youtube_url,
+            "youtube_scheduled_time": scheduled_time
+        }
+
     def clean_batch_media(self, batch_index: int) -> Dict[str, Any]:
         """
         Executa limpeza física dos arquivos de mídia de todos os vídeos de um batch,
         preservando estritamente os arquivos de metadados (metadata.txt, checkpoint.json, dissertacao.txt).
         """
-        b_dir = self.get_batch_dir(batch_index)
-        removed_files = 0
-        freed_bytes = 0
-
-        media_extensions = {".mp4", ".mp3", ".wav", ".ass", ".jpg", ".jpeg", ".png"}
-        keep_filenames = {"metadata.txt", "checkpoint.json", "dissertacao.txt", "limpar_conteudo.bat"}
+        total_removed = 0
+        total_freed = 0
 
         for v_idx in range(self.videos_per_batch):
-            v_dir = self.get_video_dir(batch_index, v_idx)
-            if not os.path.exists(v_dir):
-                continue
-
-            # Remove pasta broll se existir
-            broll_dir = os.path.join(v_dir, "broll")
-            if os.path.exists(broll_dir):
-                try:
-                    for root, _, files in os.walk(broll_dir):
-                        for file in files:
-                            fp = os.path.join(root, file)
-                            freed_bytes += os.path.getsize(fp)
-                            removed_files += 1
-                    shutil.rmtree(broll_dir, ignore_errors=True)
-                except Exception as e:
-                    app_logger.warning(f"[CheckpointManager] Erro ao remover broll em {v_dir}: {e}")
-
-            # Remove arquivos pesados na pasta do vídeo
-            for item in os.listdir(v_dir):
-                item_path = os.path.join(v_dir, item)
-                if not os.path.isfile(item_path):
-                    continue
-                if item in keep_filenames:
-                    continue
-
-                _, ext = os.path.splitext(item)
-                if ext.lower() in media_extensions or item == "scenes_concat.txt":
-                    try:
-                        sz = os.path.getsize(item_path)
-                        os.remove(item_path)
-                        freed_bytes += sz
-                        removed_files += 1
-                    except Exception as e:
-                        app_logger.warning(f"[CheckpointManager] Erro ao deletar {item_path}: {e}")
-
-            # Atualiza checkpoint do vídeo indicando que foi limpo
-            ckpt = self.load_video_checkpoint(batch_index, v_idx)
-            if ckpt.get("status") == "COMPLETED":
-                ckpt["cleaned"] = True
-                ckpt["cleaned_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-                self.save_video_checkpoint(batch_index, v_idx, ckpt)
+            res = self.clean_single_video_media(batch_index, v_idx)
+            total_removed += res.get("removed_files", 0)
+            total_freed += res.get("freed_bytes", 0)
 
         # Garante que o script limpar_conteudo.bat permaneça no batch
         self.generate_batch_cleanup_script(batch_index)
 
         return {
             "batch_index": batch_index,
-            "removed_files": removed_files,
-            "freed_bytes": freed_bytes,
-            "freed_mb": round(freed_bytes / (1024 * 1024), 2)
+            "removed_files": total_removed,
+            "freed_bytes": total_freed,
+            "freed_mb": round(total_freed / (1024 * 1024), 2)
         }
 
     def load_video_checkpoint(self, batch_index: int, video_index: int) -> Dict[str, Any]:

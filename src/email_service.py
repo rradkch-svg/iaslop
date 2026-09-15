@@ -562,6 +562,71 @@ def send_batch_email(
         }
 
 
+
+def send_upload_alert_email(
+    subject: str,
+    message: str,
+    recipient: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Envia e-mail de alerta em caso de falha de upload de vídeo no YouTube Studio.
+    """
+    target_recipient = recipient or os.environ.get("EMAIL_RECIPIENT") or DEFAULT_RECIPIENT
+    smtp_host = os.environ.get("SMTP_HOST") or "smtp.gmail.com"
+    smtp_port_raw = os.environ.get("SMTP_PORT") or "465"
+    try:
+        smtp_port = int(smtp_port_raw)
+    except ValueError:
+        smtp_port = 465
+
+    smtp_user = os.environ.get("SMTP_USER") or os.environ.get("GMAIL_USER")
+    smtp_password = os.environ.get("SMTP_PASSWORD") or os.environ.get("GMAIL_APP_PASSWORD")
+
+    if not smtp_user or not smtp_password:
+        app_logger.warning("[EmailService] Não foi possível enviar alerta de e-mail: credenciais SMTP ausentes.")
+        return {"success": False, "reason": "missing_smtp_credentials"}
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = f"⚠️ [Alerta YouTube] {subject}"
+        msg["From"] = smtp_user
+        msg["To"] = target_recipient
+
+        plain_body = f"Alerta do Minuto Inexplicável Studio\n\n{message}\n\nHorário: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 24px;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #dc2626;">
+                <h2 style="color: #ef4444; margin-top: 0;">⚠️ Alerta de Upload do YouTube Studio</h2>
+                <p style="font-size: 15px; line-height: 1.6;">{message.replace(chr(10), '<br>')}</p>
+                <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
+                <p style="font-size: 12px; color: #94a3b8;">Minuto Inexplicável • Sistema Autônomo de Publicação • {time.strftime('%Y-%m-%d %H:%M:%S')}</p>
+            </div>
+        </body>
+        </html>
+        """
+        msg.set_content(plain_body)
+        msg.add_alternative(html_body, subtype="html")
+
+        if smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=20) as server:
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+
+        app_logger.info(f"[EmailService] Alerta enviado com sucesso para {target_recipient}: {subject}")
+        return {"success": True, "recipient": target_recipient}
+    except Exception as e:
+        app_logger.error(f"[EmailService] Falha ao enviar e-mail de alerta: {e}")
+        return {"success": False, "error": str(e)}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Utilitário de Empacotamento e Envio de E-mail de Batches")
     parser.add_argument("--batch", type=int, default=None, help="Índice do batch para processar")

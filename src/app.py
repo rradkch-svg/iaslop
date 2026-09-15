@@ -422,24 +422,38 @@ with tab_batches:
     with yt_c3:
         yt_sched_hours = st.number_input("Intervalo Agendado (h):", min_value=0.0, max_value=24.0, value=0.0, step=0.5)
 
-    if st.button("🚀 Iniciar Upload de Shorts no YouTube"):
-        with st.spinner(f"Processando uploads do batch_{yt_batch_num} no YouTube Studio..."):
-            try:
-                from .youtube_uploader import upload_batch_to_youtube
-            except ImportError:
-                from youtube_uploader import upload_batch_to_youtube
-            res_yt = upload_batch_to_youtube(
-                batch_index=int(yt_batch_num),
-                visibility=yt_visibility,
-                schedule_interval_hours=float(yt_sched_hours),
-                headless=True
-            )
-            if res_yt.get("success"):
-                st.success(f"Uploads do Batch {yt_batch_num} concluídos ({res_yt.get('uploaded_count')} postados)!")
-            elif res_yt.get("uploaded_count", 0) > 0:
-                st.warning(f"Batch {yt_batch_num}: {res_yt.get('uploaded_count')}/{res_yt.get('total_targets')} vídeos postados.")
-            else:
-                st.info(f"Resultado: {res_yt.get('message', 'Nenhum vídeo novo postado. Execute scripts/postar_youtube.bat --login para autenticar uma vez.')}")
+    col_yt_btn1, col_yt_btn2 = st.columns(2)
+    with col_yt_btn1:
+        if st.button("🚀 Agendar Lote Selecionado no YouTube"):
+            with st.spinner(f"Processando uploads do batch_{yt_batch_num} no YouTube Studio..."):
+                try:
+                    from .youtube_uploader import upload_batch_to_youtube
+                except ImportError:
+                    from youtube_uploader import upload_batch_to_youtube
+                res_yt = upload_batch_to_youtube(
+                    batch_index=int(yt_batch_num),
+                    visibility=yt_visibility,
+                    headless=True
+                )
+                if res_yt.get("success"):
+                    st.success(f"Uploads do Batch {yt_batch_num} concluídos ({res_yt.get('uploaded_count')} postados)!")
+                elif res_yt.get("uploaded_count", 0) > 0:
+                    st.warning(f"Batch {yt_batch_num}: {res_yt.get('uploaded_count')}/{res_yt.get('total_targets')} vídeos postados.")
+                else:
+                    st.info(f"Resultado: {res_yt.get('message', 'Nenhum vídeo pendente ou sessão não autenticada.')}")
+
+    with col_yt_btn2:
+        if st.button("🔄 Sincronizar Todo o Backlog (Slots GMT)"):
+            with st.spinner("Sincronizando backlog de vídeos nos slots GMT e liberando disco..."):
+                try:
+                    from .youtube_uploader import sync_all_unposted_videos
+                except ImportError:
+                    from youtube_uploader import sync_all_unposted_videos
+                res_sync = sync_all_unposted_videos(headless=True)
+                if res_sync.get("success"):
+                    st.success(f"Backlog sincronizado! {res_sync.get('total_synced')} vídeos agendados ({res_sync.get('total_freed_mb')} MB liberados).")
+                else:
+                    st.warning(f"Sincronização: {res_sync.get('total_synced')} vídeos agendados. {res_sync.get('error', '')}")
 
 
 

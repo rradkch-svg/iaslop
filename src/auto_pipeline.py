@@ -754,6 +754,27 @@ class AutoPipelineRunner:
                     ckpt["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                     self.checkpoint_mgr.mark_video_completed(batch_idx, video_idx, final_video_path)
+
+                    # Agendamento automático no YouTube Studio (Slots 11h, 13h, 15h, 17h GMT) e limpeza imediata
+                    try:
+                        print(f"  🚀 Agendando {v_name} no YouTube Studio (Slots 11h, 13h, 15h, 17h GMT)...")
+                        try:
+                            from .youtube_uploader import upload_and_clean_single_video
+                        except ImportError:
+                            from youtube_uploader import upload_and_clean_single_video
+                        upload_res = upload_and_clean_single_video(
+                            batch_index=batch_idx,
+                            video_index=video_idx,
+                            checkpoint_dir=self.checkpoint_mgr.root_dir,
+                            headless=True
+                        )
+                        if upload_res.get("success"):
+                            print(f"  🎉 Vídeo agendado com sucesso ({upload_res.get('url')}) e armazenamento limpo ({upload_res.get('freed_mb', 0)} MB liberados)!")
+                        else:
+                            print(f"  ⚠️ Aviso: Não foi possível agendar o vídeo no YouTube ({upload_res.get('error')}). Conteúdo preservado em disco.")
+                    except Exception as e_yt:
+                        app_logger.warning(f"[AutoPipeline] Erro não bloqueante no upload do YouTube para {b_name}/{v_name}: {e_yt}")
+
                     return True
 
                 except Exception as e:
