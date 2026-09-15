@@ -566,6 +566,7 @@ class YouTubeStudioUploader:
                 log(f"🔒 Configurando visibilidade/agendamento: {visibility}...")
                 if visibility == "SCHEDULE" and schedule_time:
                     sched_tab = page.locator("#second-container-expand-button, button:has-text('Programar'), button:has-text('Schedule'), tp-yt-paper-radio-button[name='SCHEDULE']").first
+                    sched_tab.scroll_into_view_if_needed()
                     sched_tab.click()
                     time.sleep(1.5)
 
@@ -574,35 +575,35 @@ class YouTubeStudioUploader:
                     log(f"📅 Definindo data/hora: {schedule_time.strftime('%H:%M GMT')} ({target_local.strftime('%d/%m/%Y %H:%M Local')})")
 
                     dp_trigger = page.locator("#datepicker-trigger").first
-                    if dp_trigger.is_visible():
-                        dp_trigger.click()
-                        time.sleep(1)
+                    dp_trigger.wait_for(state="visible", timeout=10000)
+                    dp_trigger.click()
+                    time.sleep(1)
 
                     date_input = page.locator("ytcp-date-picker input").first
-                    if date_input.is_visible():
-                        curr_val = date_input.input_value()
-                        is_pt = any(m in curr_val.lower() for m in [" de ", "fev", "abr", "mai", "ago", "set", "out", "dez"])
-                        if is_pt:
-                            pt_months = ["", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
-                            formatted_date = f"{target_local.day} de {pt_months[target_local.month]}. de {target_local.year}"
-                        else:
-                            formatted_date = target_local.strftime("%b %d, %Y")
+                    date_input.wait_for(state="visible", timeout=10000)
+                    curr_val = date_input.input_value()
+                    is_pt = any(m in curr_val.lower() for m in [" de ", "fev", "abr", "mai", "ago", "set", "out", "dez"])
+                    if is_pt:
+                        pt_months = ["", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+                        formatted_date = f"{target_local.day} de {pt_months[target_local.month]}. de {target_local.year}"
+                    else:
+                        formatted_date = target_local.strftime("%b %d, %Y")
 
-                        date_input.click(force=True)
-                        page.keyboard.press("Control+A")
-                        page.keyboard.press("Backspace")
-                        date_input.fill(formatted_date)
-                        page.keyboard.press("Enter")
-                        time.sleep(0.8)
+                    date_input.click(force=True)
+                    page.keyboard.press("Control+A")
+                    page.keyboard.press("Backspace")
+                    date_input.fill(formatted_date)
+                    page.keyboard.press("Enter")
+                    time.sleep(0.8)
 
                     time_input = page.locator("#time-of-day-container input, input[aria-label*='Horário'], input[aria-label*='Time']").first
-                    if time_input.is_visible():
-                        time_input.click(force=True)
-                        page.keyboard.press("Control+A")
-                        page.keyboard.press("Backspace")
-                        time_input.fill(target_local.strftime("%H:%M"))
-                        page.keyboard.press("Enter")
-                        time.sleep(0.8)
+                    time_input.wait_for(state="visible", timeout=10000)
+                    time_input.click(force=True)
+                    page.keyboard.press("Control+A")
+                    page.keyboard.press("Backspace")
+                    time_input.fill(target_local.strftime("%H:%M"))
+                    page.keyboard.press("Enter")
+                    time.sleep(0.8)
 
                 elif visibility == "PUBLIC":
                     pub_radio = page.locator("tp-yt-paper-radio-button[name='PUBLIC']").first
@@ -627,26 +628,40 @@ class YouTubeStudioUploader:
                 except Exception:
                     pass
 
-                log("💾 Finalizando e publicando no YouTube...")
-                done_btn = page.locator("#done-button, button:has-text('Salvar'), button:has-text('Publicar'), button:has-text('Programar'), button:has-text('Save'), button:has-text('Publish'), button:has-text('Schedule'), ytcp-button#done-button").first
+                log("💾 Finalizando e agendando no YouTube...")
+                if visibility == "SCHEDULE":
+                    done_btn = page.locator("#done-button:has-text('Programar'), button:has-text('Programar'), #done-button, ytcp-button#done-button").first
+                else:
+                    done_btn = page.locator("#done-button, button:has-text('Salvar'), button:has-text('Publicar'), ytcp-button#done-button").first
+
                 done_btn.wait_for(state="visible", timeout=20000)
                 done_btn.click()
+                time.sleep(2)
 
-                time.sleep(4)
+                # Se aparecer o modal de aviso "Ainda estamos verificando seu conteúdo", confirma com Ok
+                ok_btn = page.locator("ytcp-button:has-text('Ok'), button:has-text('Ok'), ytcp-button:has-text('OK'), button:has-text('OK')").first
                 try:
-                    url_elem = page.locator("a.ytcp-video-info, a[href*='youtu.be']").first
-                    if url_elem.is_visible():
-                        video_url = url_elem.get_attribute("href") or video_url
-                except Exception:
-                    pass
-
-                try:
-                    close_btn = page.locator("#close-button, ytcp-button#close-button, button:has-text('Fechar'), button:has-text('Close')").first
-                    if close_btn.is_visible():
-                        close_btn.click()
+                    if ok_btn.is_visible(timeout=3000):
+                        log("⚠️ Confirmando diálogo de verificação prévia ('Ok')...")
+                        ok_btn.click()
                         time.sleep(2)
                 except Exception:
                     pass
+
+                # Aguarda o diálogo de confirmação "Vídeo programado" e fecha
+                for _ in range(15):
+                    try:
+                        close_btn = page.locator("#close-button, ytcp-button#close-button, button:has-text('Fechar'), button:has-text('Close')").first
+                        if close_btn.is_visible(timeout=1000):
+                            url_elem = page.locator("a.ytcp-video-info, a[href*='youtu.be']").first
+                            if url_elem.is_visible():
+                                video_url = url_elem.get_attribute("href") or video_url
+                            close_btn.click()
+                            time.sleep(2)
+                            break
+                    except Exception:
+                        pass
+                    time.sleep(1)
 
                 log(f"🎉 Vídeo agendado/publicado com sucesso! {video_url}")
 
