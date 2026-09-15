@@ -8,3 +8,4 @@ moviepy
 psutil
 imageio-ffmpeg
 requests
+playwright

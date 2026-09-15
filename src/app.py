@@ -412,6 +412,36 @@ with tab_batches:
                 else:
                     st.error(f"Erro ao enviar e-mail: {res.get('error', 'Falha desconhecida')}. ZIP: `{res.get('zip_path')}`")
 
+    st.markdown("---")
+    st.markdown("#### 🚀 Postagem de Shorts no YouTube Studio (Playwright)")
+    yt_c1, yt_c2, yt_c3 = st.columns([2, 1, 1])
+    with yt_c1:
+        yt_batch_num = st.number_input("Batch para Postar no YouTube:", min_value=0, max_value=999, value=max(0, state.get("completed_batches_count", 0)), step=1)
+    with yt_c2:
+        yt_visibility = st.selectbox("Visibilidade:", ["PUBLIC", "UNLISTED", "PRIVATE"], index=0)
+    with yt_c3:
+        yt_sched_hours = st.number_input("Intervalo Agendado (h):", min_value=0.0, max_value=24.0, value=0.0, step=0.5)
+
+    if st.button("🚀 Iniciar Upload de Shorts no YouTube"):
+        with st.spinner(f"Processando uploads do batch_{yt_batch_num} no YouTube Studio..."):
+            try:
+                from .youtube_uploader import upload_batch_to_youtube
+            except ImportError:
+                from youtube_uploader import upload_batch_to_youtube
+            res_yt = upload_batch_to_youtube(
+                batch_index=int(yt_batch_num),
+                visibility=yt_visibility,
+                schedule_interval_hours=float(yt_sched_hours),
+                headless=True
+            )
+            if res_yt.get("success"):
+                st.success(f"Uploads do Batch {yt_batch_num} concluídos ({res_yt.get('uploaded_count')} postados)!")
+            elif res_yt.get("uploaded_count", 0) > 0:
+                st.warning(f"Batch {yt_batch_num}: {res_yt.get('uploaded_count')}/{res_yt.get('total_targets')} vídeos postados.")
+            else:
+                st.info(f"Resultado: {res_yt.get('message', 'Nenhum vídeo novo postado. Execute scripts/postar_youtube.bat --login para autenticar uma vez.')}")
+
+
 
 with tab_audio_sfx:
     st.markdown("### 🔔 Sound FX & 🎵 Trilha Sonora de Suspense")
