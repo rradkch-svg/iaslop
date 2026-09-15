@@ -532,20 +532,25 @@ class YouTubeStudioUploader:
                     desc_box.click()
                     full_desc = f"{description}\n\n{' '.join(tags)}"
                     desc_box.fill(full_desc[:4900])
-                    page.keyboard.press("Escape")
+                    desc_box.evaluate("el => el.blur()")
                     time.sleep(1)
                 except Exception as e_desc:
                     app_logger.warning(f"[YouTubeUploader] Erro ao preencher descrição: {e_desc}")
 
                 log("👶 Definindo restrição de audiência (Não é para crianças)...")
                 not_for_kids_radio = page.locator("tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']").first
-                not_for_kids_radio.scroll_into_view_if_needed()
-                time.sleep(0.5)
-                radio_target = not_for_kids_radio.locator("#radioContainer, div#offRadio").first
-                if radio_target.is_visible():
-                    radio_target.click()
-                else:
-                    not_for_kids_radio.click()
+                try:
+                    not_for_kids_radio.wait_for(state="attached", timeout=15000)
+                    not_for_kids_radio.scroll_into_view_if_needed(timeout=8000)
+                    time.sleep(0.5)
+                    radio_target = not_for_kids_radio.locator("#radioContainer, div#offRadio").first
+                    if radio_target.is_visible(timeout=2000):
+                        radio_target.click(force=True)
+                    else:
+                        not_for_kids_radio.click(force=True)
+                except Exception as e_radio:
+                    app_logger.warning(f"[YouTubeUploader] Seleção padrão de público falhou ({e_radio}), tentando fallback DOM...")
+                    page.evaluate("() => { const r = document.querySelector(\"tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']\"); if (r) r.click(); }")
                 time.sleep(1)
 
                 try:
@@ -571,8 +576,12 @@ class YouTubeStudioUploader:
                 log(f"🔒 Configurando visibilidade/agendamento: {visibility}...")
                 if visibility == "SCHEDULE" and schedule_time:
                     sched_tab = page.locator("#second-container-expand-button, button:has-text('Programar'), button:has-text('Schedule'), tp-yt-paper-radio-button[name='SCHEDULE']").first
-                    sched_tab.scroll_into_view_if_needed()
-                    sched_tab.click()
+                    try:
+                        sched_tab.wait_for(state="visible", timeout=15000)
+                        sched_tab.scroll_into_view_if_needed(timeout=5000)
+                        sched_tab.click()
+                    except Exception:
+                        page.evaluate("() => { const s = document.querySelector(\"#second-container-expand-button, tp-yt-paper-radio-button[name='SCHEDULE']\"); if (s) s.click(); }")
                     time.sleep(1.5)
 
                     # Converte para horário local da máquina/canal
