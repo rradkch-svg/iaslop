@@ -106,7 +106,9 @@ def parse_netscape_cookies(cookie_file_path: str) -> List[Dict[str, Any]]:
                         "sameSite": "Lax",
                     }
                     if expires > 0:
-                        cookie_dict["expires"] = expires
+                        if expires > 1e11:
+                            expires = expires / 1000.0
+                        cookie_dict["expires"] = int(expires)
 
                     cookies.append(cookie_dict)
     except Exception as e:
@@ -395,11 +397,14 @@ class YouTubeStudioUploader:
         if os.path.exists(self.cookies_path):
             netscape_cookies = parse_netscape_cookies(self.cookies_path)
             if netscape_cookies:
-                try:
-                    context.add_cookies(netscape_cookies)
-                    app_logger.info(f"[YouTubeUploader] 🍪 {len(netscape_cookies)} cookies importados de '{self.cookies_path}'.")
-                except Exception as e:
-                    app_logger.warning(f"[YouTubeUploader] Erro ao injetar cookies: {e}")
+                added = 0
+                for c in netscape_cookies:
+                    try:
+                        context.add_cookies([c])
+                        added += 1
+                    except Exception:
+                        pass
+                app_logger.info(f"[YouTubeUploader] 🍪 {added}/{len(netscape_cookies)} cookies importados de '{self.cookies_path}'.")
 
         return context
 
@@ -486,23 +491,31 @@ class YouTubeStudioUploader:
                 create_btn.click()
                 time.sleep(1.5)
 
-                upload_option = page.locator("ytcp-text-menu-item#text-item-0, [test-id='upload-video'], paper-item:has-text('Enviar vídeos'), paper-item:has-text('Upload videos')").first
+                upload_option = page.locator(
+                    "tp-yt-paper-item#text-item-0, "
+                    "#text-item-0, "
+                    "ytcp-text-menu tp-yt-paper-item:has-text('Enviar vídeos'), "
+                    "ytcp-text-menu tp-yt-paper-item:has-text('Upload videos'), "
+                    "ytcp-text-menu :text('Enviar vídeos'), "
+                    "ytcp-text-menu :text('Upload videos'), "
+                    "[test-id='upload-video']"
+                ).first
                 upload_option.wait_for(state="visible", timeout=15000)
-                upload_option.click()
+                upload_option.click(force=True)
                 time.sleep(2)
 
                 log(f"📤 Fazendo upload do arquivo: {os.path.basename(video_path)}...")
                 file_input = page.locator("input[type='file']").first
                 file_input.wait_for(state="attached", timeout=20000)
                 file_input.set_input_files(video_path)
-                time.sleep(5)
+                time.sleep(4)
 
                 dialog = page.locator("ytcp-uploads-dialog, ytcp-video-metadata-editor").first
-                dialog.wait_for(state="visible", timeout=45000)
+                dialog.wait_for(state="attached", timeout=45000)
                 log("✍️ Preenchendo metadados do vídeo...")
 
-                title_box = page.locator("#textbox[aria-label*='título'], #textbox[aria-label*='Title'], div#title-textarea #textbox").first
-                title_box.wait_for(state="visible", timeout=15000)
+                title_box = page.locator("#textbox[aria-label*='título'], #textbox[aria-label*='Title'], div#title-textarea #textbox, #title-textarea #textbox").first
+                title_box.wait_for(state="visible", timeout=45000)
                 title_box.click()
                 page.keyboard.press("Control+A")
                 page.keyboard.press("Backspace")
@@ -519,7 +532,12 @@ class YouTubeStudioUploader:
                 log("👶 Definindo restrição de audiência (Não é para crianças)...")
                 not_for_kids_radio = page.locator("tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']").first
                 not_for_kids_radio.scroll_into_view_if_needed()
-                not_for_kids_radio.click()
+                time.sleep(0.5)
+                radio_target = not_for_kids_radio.locator("#radioContainer, div#offRadio").first
+                if radio_target.is_visible():
+                    radio_target.click()
+                else:
+                    not_for_kids_radio.click()
                 time.sleep(1)
 
                 try:
@@ -537,14 +555,14 @@ class YouTubeStudioUploader:
 
                 log("⏭️ Avançando etapas de elementos e direitos autorais...")
                 for _ in range(3):
-                    next_btn = page.locator("#next-button, button:has-text('Próximo'), button:has-text('Next')").first
+                    next_btn = page.locator("#next-button, button:has-text('Avançar'), button:has-text('Próximo'), button:has-text('Next')").first
                     next_btn.wait_for(state="visible", timeout=15000)
                     next_btn.click()
                     time.sleep(2)
 
                 log(f"🔒 Configurando visibilidade/agendamento: {visibility}...")
                 if visibility == "SCHEDULE" and schedule_time:
-                    sched_tab = page.locator("#second-container-expand-button, button:has-text('Programar'), button:has-text('Schedule')").first
+                    sched_tab = page.locator("#second-container-expand-button, button:has-text('Programar'), button:has-text('Schedule'), tp-yt-paper-radio-button[name='SCHEDULE']").first
                     sched_tab.click()
                     time.sleep(1.5)
 
@@ -552,17 +570,36 @@ class YouTubeStudioUploader:
                     target_local = schedule_time.astimezone() if schedule_time.tzinfo else schedule_time
                     log(f"📅 Definindo data/hora: {schedule_time.strftime('%H:%M GMT')} ({target_local.strftime('%d/%m/%Y %H:%M Local')})")
 
-                    date_input = page.locator("#datepicker-trigger input").first
-                    if date_input.is_visible():
-                        date_input.fill(target_local.strftime("%d/%m/%Y"))
-                        page.keyboard.press("Enter")
-                        time.sleep(0.5)
+                    dp_trigger = page.locator("#datepicker-trigger").first
+                    if dp_trigger.is_visible():
+                        dp_trigger.click()
+                        time.sleep(1)
 
-                    time_input = page.locator("input[aria-label*='Horário'], input[aria-label*='Time']").first
+                    date_input = page.locator("ytcp-date-picker input").first
+                    if date_input.is_visible():
+                        curr_val = date_input.input_value()
+                        is_pt = any(m in curr_val.lower() for m in [" de ", "fev", "abr", "mai", "ago", "set", "out", "dez"])
+                        if is_pt:
+                            pt_months = ["", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+                            formatted_date = f"{target_local.day} de {pt_months[target_local.month]}. de {target_local.year}"
+                        else:
+                            formatted_date = target_local.strftime("%b %d, %Y")
+
+                        date_input.click(force=True)
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
+                        date_input.fill(formatted_date)
+                        page.keyboard.press("Enter")
+                        time.sleep(0.8)
+
+                    time_input = page.locator("#time-of-day-container input, input[aria-label*='Horário'], input[aria-label*='Time']").first
                     if time_input.is_visible():
+                        time_input.click(force=True)
+                        page.keyboard.press("Control+A")
+                        page.keyboard.press("Backspace")
                         time_input.fill(target_local.strftime("%H:%M"))
                         page.keyboard.press("Enter")
-                        time.sleep(0.5)
+                        time.sleep(0.8)
 
                 elif visibility == "PUBLIC":
                     pub_radio = page.locator("tp-yt-paper-radio-button[name='PUBLIC']").first
@@ -588,11 +625,26 @@ class YouTubeStudioUploader:
                     pass
 
                 log("💾 Finalizando e publicando no YouTube...")
-                done_btn = page.locator("#done-button, button:has-text('Salvar'), button:has-text('Publicar'), button:has-text('Programar'), button:has-text('Save'), button:has-text('Publish'), button:has-text('Schedule')").first
+                done_btn = page.locator("#done-button, button:has-text('Salvar'), button:has-text('Publicar'), button:has-text('Programar'), button:has-text('Save'), button:has-text('Publish'), button:has-text('Schedule'), ytcp-button#done-button").first
                 done_btn.wait_for(state="visible", timeout=20000)
                 done_btn.click()
 
-                time.sleep(6)
+                time.sleep(4)
+                try:
+                    url_elem = page.locator("a.ytcp-video-info, a[href*='youtu.be']").first
+                    if url_elem.is_visible():
+                        video_url = url_elem.get_attribute("href") or video_url
+                except Exception:
+                    pass
+
+                try:
+                    close_btn = page.locator("#close-button, ytcp-button#close-button, button:has-text('Fechar'), button:has-text('Close')").first
+                    if close_btn.is_visible():
+                        close_btn.click()
+                        time.sleep(2)
+                except Exception:
+                    pass
+
                 log(f"🎉 Vídeo agendado/publicado com sucesso! {video_url}")
 
                 context.close()
@@ -683,8 +735,11 @@ def upload_and_clean_single_video(
         # 4. Limpeza imediata do arquivo de mídia
         try:
             from .checkpoint_manager import CheckpointManager
-        except ImportError:
-            from checkpoint_manager import CheckpointManager
+        except Exception:
+            try:
+                from checkpoint_manager import CheckpointManager
+            except Exception:
+                from src.checkpoint_manager import CheckpointManager
         ckpt_mgr = CheckpointManager(root_dir=base_dir)
         clean_res = ckpt_mgr.clean_single_video_media(
             batch_index=batch_index,
@@ -706,6 +761,13 @@ def upload_and_clean_single_video(
         app_logger.error(f"[YouTubeUploader] ❌ Falha no agendamento de batch_{batch_index}/{video_key}: {err_msg}")
         try:
             from .email_service import send_upload_alert_email
+        except Exception:
+            try:
+                from email_service import send_upload_alert_email
+            except Exception:
+                from src.email_service import send_upload_alert_email
+
+        try:
             send_upload_alert_email(
                 subject=f"Falha ao postar {video_key} do Batch {batch_index}",
                 message=f"Não foi possível agendar o vídeo '{meta['title']}' no YouTube Studio.\n\n"
