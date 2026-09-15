@@ -387,6 +387,7 @@ class YouTubeStudioUploader:
             executable_path=self.browser_exe,
             headless=self.headless,
             viewport={"width": 1280, "height": 800},
+            ignore_default_args=["--enable-automation"],
             args=[
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
@@ -394,7 +395,7 @@ class YouTubeStudioUploader:
             ]
         )
 
-        if os.path.exists(self.cookies_path):
+        if not context.cookies() and os.path.exists(self.cookies_path):
             netscape_cookies = parse_netscape_cookies(self.cookies_path)
             if netscape_cookies:
                 added = 0
@@ -429,9 +430,11 @@ class YouTubeStudioUploader:
                 executable_path=self.browser_exe,
                 headless=False,
                 viewport={"width": 1280, "height": 850},
+                ignore_default_args=["--enable-automation"],
                 args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
             )
-            page = context.new_page()
+            context.clear_cookies()
+            page = context.pages[0] if context.pages else context.new_page()
             page.goto("https://studio.youtube.com", timeout=60000)
 
             input("👉 Pressione ENTER assim que estiver autenticado e vendo o painel do YouTube Studio...")
