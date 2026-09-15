@@ -755,9 +755,9 @@ class AutoPipelineRunner:
                     self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                     self.checkpoint_mgr.mark_video_completed(batch_idx, video_idx, final_video_path)
 
-                    # Agendamento automático no YouTube Studio (Slots 11h, 13h, 15h, 17h GMT) e limpeza imediata
+                    # Agendamento automático no YouTube Studio (Slots 11h, 13h, 15h, 17h Brasília) e limpeza imediata
                     try:
-                        print(f"  🚀 Agendando {v_name} no YouTube Studio (Slots 11h, 13h, 15h, 17h GMT)...")
+                        print(f"  🚀 Agendando {v_name} no YouTube Studio (Slots 11h, 13h, 15h, 17h Brasília)...")
                         try:
                             from .youtube_uploader import upload_and_clean_single_video
                         except ImportError:

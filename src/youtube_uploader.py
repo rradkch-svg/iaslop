@@ -42,8 +42,9 @@ DEFAULT_CHECKPOINT_DIR = os.environ.get("CHECKPOINT_DIR") or os.path.join(PROJEC
 DEFAULT_PROFILE_DIR = os.path.join(DEFAULT_CHECKPOINT_DIR, "youtube_profile")
 DEFAULT_COOKIES_TXT = os.path.join(PROJECT_ROOT, "cookies.txt")
 
-# Slots de horários diários fixos em GMT (11h, 13h, 15h, 17h GMT = 08h, 10h, 12h, 14h Brasília)
-DEFAULT_GMT_SLOTS = [11, 13, 15, 17]
+# Slots de horários diários fixos (11h, 13h, 15h, 17h Horário de Brasília = 14h, 16h, 18h, 20h GMT/UTC)
+DEFAULT_BRASILIA_SLOTS = [11, 13, 15, 17]
+DEFAULT_GMT_SLOTS = [14, 16, 18, 20]
 
 # Caminhos padrão do Google Chrome no Windows
 CHROME_CANDIDATE_PATHS = [
@@ -217,7 +218,7 @@ def get_next_available_gmt_slot(
     checkpoint_dir: Optional[str] = None
 ) -> datetime:
     """
-    Calcula o próximo horário livre dentre os slots fixos diários (11:00, 13:00, 15:00, 17:00 GMT).
+    Calcula o próximo horário livre dentre os slots fixos diários (11h, 13h, 15h, 17h Horário de Brasília / 14h, 16h, 18h, 20h GMT).
     Garante que o slot esteja livre no registro global e no mínimo 30 min no futuro em relação ao horário UTC atual.
     """
     now_utc = datetime.now(timezone.utc)
@@ -699,7 +700,7 @@ def upload_and_clean_single_video(
     headless: bool = True
 ) -> Dict[str, Any]:
     """
-    Faz o upload do vídeo recém-concluído, programa para o próximo slot GMT livre (11h, 13h, 15h ou 17h GMT)
+    Faz o upload do vídeo recém-concluído, programa para o próximo slot livre (11h, 13h, 15h ou 17h Brasília = 14h, 16h, 18h, 20h GMT)
     e, mediante confirmação de sucesso, exclui a mídia física local liberando espaço em disco.
     Em caso de falha, mantém a mídia para retentativa e envia alerta por e-mail para o destinatário configurado.
     """
@@ -828,7 +829,7 @@ def sync_all_unposted_videos(
     results = []
 
     print(f"\n{'=' * 75}")
-    print(f"🔄 SINCRONIZAÇÃO DE BACKLOG: POSTAGEM NOS SLOTS 11h, 13h, 15h, 17h GMT")
+    print(f"🔄 SINCRONIZAÇÃO DE BACKLOG: POSTAGEM NOS SLOTS 11h, 13h, 15h, 17h (BRASÍLIA)")
     print(f"{'=' * 75}\n")
 
     for b_idx in batches:
@@ -839,11 +840,12 @@ def sync_all_unposted_videos(
         print(f"\n📦 Processando Batch {b_idx} ({len(targets)} vídeos pendentes)...")
         for t in targets:
             v_idx = t["video_index"]
-            print(f"  🚀 Agendando batch_{b_idx}/video_{v_idx}...")
             res = upload_and_clean_single_video(b_idx, v_idx, checkpoint_dir=base_dir, headless=headless)
             if res.get("success"):
                 total_synced += 1
-                total_freed_mb += res.get("freed_mb", 0.0)
+                v_file = t.get("video_file", "")
+                if os.path.exists(v_file):
+                    total_freed_mb += os.path.getsize(v_file) / (1024 * 1024)
                 results.append(res)
             else:
                 print(f"  ❌ Erro ao postar batch_{b_idx}/video_{v_idx}: {res.get('error')}")
@@ -875,7 +877,7 @@ def upload_batch_to_youtube(
 ) -> Dict[str, Any]:
     """
     Coordena o envio de todos os vídeos pendentes de um lote específico.
-    Se visibility='SCHEDULE' e schedule_interval_hours=0, utiliza a alocação de slots fixos GMT.
+    Se visibility='SCHEDULE' e schedule_interval_hours=0, utiliza a alocação de slots fixos (11h, 13h, 15h, 17h Brasília).
     """
     targets = get_batch_videos_to_upload(batch_index, checkpoint_dir=checkpoint_dir)
     if not targets:
@@ -913,7 +915,7 @@ def upload_batch_to_youtube(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Automação de Upload e Agendamento de Shorts no YouTube Studio (Slots 11h, 13h, 15h, 17h GMT)")
+    parser = argparse.ArgumentParser(description="Automação de Upload e Agendamento de Shorts no YouTube Studio (Slots 11h, 13h, 15h, 17h Brasília / 14h, 16h, 18h, 20h GMT)")
     parser.add_argument("--batch", type=int, default=None, help="Índice do batch para postar (ex: 1, 2, 3)")
     parser.add_argument("--video", nargs=2, type=int, metavar=("BATCH", "VIDEO"), help="Posta um único vídeo específico (ex: --video 2 0)")
     parser.add_argument("--sync-backlog", "--sync-all", action="store_true", help="Processa e agenda todo o backlog de vídeos não postados em todos os batches")
