@@ -109,7 +109,8 @@ class VideoResolutionEnhancer:
         denoise: bool = True,
         contrast_boost: float = 1.05,
         saturation_boost: float = 1.08,
-        brightness_adjust: float = 0.01
+        brightness_adjust: float = 0.01,
+        vignette: bool = True
     ) -> str:
         """
         Constrói a cadeia de filtros FFmpeg para upscaling inteligente e tratamento cinematográfico:
@@ -118,7 +119,8 @@ class VideoResolutionEnhancer:
         3. Redução de ruído e artefatos de compressão (hqdn3d)
         4. Máscara de Nitidez Inteligente (Unsharp Masking)
         5. Equalização de contraste e saturação cinematográfica (eq)
-        6. Padronização de SAR 1:1 e cadência fluida de 30 FPS.
+        6. Textura documental sutil (vinheta cinematográfica confidencial sem escurecer o centro)
+        7. Padronização de SAR 1:1 e cadência fluida de 30 FPS.
         """
         filters = []
 
@@ -143,7 +145,11 @@ class VideoResolutionEnhancer:
         # 5. Equalização de contraste e saturação
         filters.append(f"eq=contrast={contrast_boost:.2f}:brightness={brightness_adjust:.2f}:saturation={saturation_boost:.2f}")
 
-        # 6. Aspect Ratio de Pixel (SAR) e Frame Rate estrito
+        # 6. Textura documental confidencial com vinheta sutil
+        if vignette:
+            filters.append("vignette=angle=PI/5")
+
+        # 7. Aspect Ratio de Pixel (SAR) e Frame Rate estrito
         filters.append("setsar=1")
         filters.append("fps=30")
 
@@ -157,6 +163,7 @@ class VideoResolutionEnhancer:
         denoise: bool = True,
         contrast_boost: float = 1.05,
         saturation_boost: float = 1.08,
+        vignette: bool = True,
         status_callback = None
     ) -> Tuple[bool, str]:
         """
@@ -184,7 +191,8 @@ class VideoResolutionEnhancer:
                 sharpen_strength=sharpen_strength,
                 denoise=denoise,
                 contrast_boost=contrast_boost,
-                saturation_boost=saturation_boost
+                saturation_boost=saturation_boost,
+                vignette=vignette
             )
 
             cmd = [

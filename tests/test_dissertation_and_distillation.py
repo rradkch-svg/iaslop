@@ -8,7 +8,7 @@ SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from agents import DissertationAgent, DirectorAgent
+from agents import DissertationAgent, DirectorAgent, ProposerAgent
 
 class TestDissertationAndDistillation(unittest.TestCase):
     def setUp(self):
@@ -46,6 +46,37 @@ class TestDissertationAndDistillation(unittest.TestCase):
         
         self.assertEqual(len(scenes), 1)
         self.assertEqual(scenes[0]["scene_id"], 1)
+
+    @patch("agents.generate_with_resilience")
+    def test_director_seamless_loop_guidelines(self, mock_gen):
+        """Verifica se o DirectorAgent instrui o Loop Infinito Perfeito e proíbe CTAs tradicionais."""
+        mock_gen.return_value = '{"cenas": [{"scene_id": 1, "fala": "...é exatamente o que os documentos revelam.", "youtube_query": "Camp Century 4k", "duracao_estimada": 5.0}]}'
+        director = DirectorAgent()
+        
+        # Verifica a instrução do sistema
+        self.assertIn("LOOP INFINITO PERFEITO (SEAMLESS LOOP)", director.system_instruction)
+        self.assertIn("TERMINANTEMENTE PROIBIDO", director.system_instruction)
+        
+        # Verifica o prompt enviado ao modelo
+        director.generate_storyboard(self.topic)
+        prompt_sent = mock_gen.call_args[1]["prompt"]
+        self.assertIn("LOOP INFINITO PERFEITO - SEAMLESS LOOP", prompt_sent)
+        self.assertIn("conectando de volta", prompt_sent)
+
+    @patch("agents.generate_with_resilience")
+    def test_proposer_curiosity_gap_guidelines(self, mock_gen):
+        """Verifica se o ProposerAgent impõe a fórmula Curiosity Gap e proíbe títulos enciclopédicos."""
+        mock_gen.return_value = '[{"tema": "Por Que a Rússia Selou Esse Poço aos 12.262 Metros? 🕳️🇷🇺", "descricao": "...", "tags": ["#Shorts"], "hook": "...", "explicacao_tecnica": "..."}]'
+        proposer = ProposerAgent()
+        
+        # Verifica a instrução de sistema
+        self.assertIn("FÓRMULA CURIOSITY GAP OBRIGATÓRIA", proposer.system_instruction)
+        self.assertIn("NUNCA use títulos enciclopédicos ou genéricos", proposer.system_instruction)
+        
+        # Verifica o prompt enviado ao modelo
+        proposer.generate_topics(count=1)
+        prompt_sent = mock_gen.call_args[1]["prompt"]
+        self.assertIn("TÍTULO CURIOSITY GAP", prompt_sent)
 
 if __name__ == "__main__":
     unittest.main()

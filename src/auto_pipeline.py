@@ -562,7 +562,7 @@ class AutoPipelineRunner:
                     cenas=cenas,
                     total_audio_duration=total_audio_dur,
                     words_timing=words_timing,
-                    tail_overhead=1.8
+                    tail_overhead=0.1
                 )
                 
                 for idx, c in enumerate(cenas):
@@ -662,7 +662,7 @@ class AutoPipelineRunner:
                     cenas=cenas,
                     total_audio_duration=total_audio_dur,
                     words_timing=words_timing,
-                    tail_overhead=1.8
+                    tail_overhead=0.1
                 )
 
                 # Monta a lista ordenada de segmentos de vídeo para cada cena (100% vídeos reais e auditados)

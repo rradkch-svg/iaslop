@@ -74,7 +74,7 @@ def assemble_multi_scene_video(
     media_scenes: Optional[List[Any]] = None,
     topic_context: Optional[Dict[str, Any]] = None,
     status_callback = None,
-    outro_padding: float = 1.8,
+    outro_padding: float = 0.1,
     *args,
     **kwargs
 ) -> Tuple[bool, str]:
@@ -82,7 +82,7 @@ def assemble_multi_scene_video(
     Concatena múltiplos clipes 9:16, aplica tratamento de resolução HD e nitidez,
     funde com narração de voz, trilha sonora BGM (ducking) e efeitos sonoros SFX (whooshes, sinos, clicks)
     e queima legendas dinâmicas ASS em alta definição 1080x1920.
-    Garante finalização elegante com Outro Grace Period de 1.8s e fade-out acústico suave.
+    Garante finalização precisa e sem pausas mortas para loop infinito suave (Seamless Loop).
     """
     actual_clips = clip_paths or media_scenes or kwargs.get("media_scenes") or []
     actual_ass = ass_path or subtitles_path or kwargs.get("subtitles_path") or ""
@@ -171,18 +171,20 @@ def assemble_multi_scene_video(
         if status_callback:
             status_callback("🎨 Renderizando Composição Master (Vídeo HD + Voz + BGM Ducked + SFX + Legendas ASS)...")
 
-        # Duração precisa do áudio para cálculo de encerramento cinematográfico (Outro Buffer)
+        # Duração precisa do áudio para cálculo de encerramento em loop contínuo sem silêncio morto
         audio_dur = get_media_duration(actual_audio, ffmpeg_bin) or 60.0
-        total_target_dur = audio_dur + max(0.8, outro_padding)
-        fade_out_st = max(0.5, total_target_dur - 1.2)
+        padding = max(0.0, outro_padding)
+        total_target_dur = audio_dur + padding
+        fade_dur = min(0.15, padding) if padding > 0.05 else 0.05
+        fade_out_st = max(0.1, total_target_dur - fade_dur)
 
         # Montagem dinâmica do comando FFmpeg
         # input 0 = combined_scenes_mp4 (video), input 1 = actual_audio (voice)
         cmd_inputs = [ffmpeg_bin, "-y", "-i", combined_scenes_mp4, "-i", actual_audio]
         current_input_idx = 2
 
-        # Voice track com apad para manter o BGM e a cena final ressoando com elegância após a última palavra
-        filter_complex_parts = [f"[1:a]apad=pad_dur={outro_padding:.2f},volume=1.0[voice]"]
+        # Voice track com apad mínimo para transição perfeita de áudio sem cortes de consoantes finais
+        filter_complex_parts = [f"[1:a]apad=pad_dur={padding:.2f},volume=1.0[voice]"]
         audio_mix_inputs = ["[voice]"]
 
         # Entrada 2: BGM
@@ -201,13 +203,13 @@ def assemble_multi_scene_video(
             filter_complex_parts.append(f"[{sfx_in_idx}:a]volume={sfx_volume:.3f}[sfx]")
             audio_mix_inputs.append("[sfx]")
 
-        # Mixagem de áudio com fade out acústico suave no desfecho
+        # Mixagem de áudio com fade out micro-acústico no desfecho sem silêncio morto
         if len(audio_mix_inputs) > 1:
-            mix_str = "".join(audio_mix_inputs) + f"amix=inputs={len(audio_mix_inputs)}:duration=first:dropout_transition=2,afade=t=out:st={fade_out_st:.2f}:d=1.2[aout]"
+            mix_str = "".join(audio_mix_inputs) + f"amix=inputs={len(audio_mix_inputs)}:duration=first:dropout_transition=2,afade=t=out:st={fade_out_st:.2f}:d={fade_dur:.2f}[aout]"
             filter_complex_parts.append(mix_str)
             audio_map = "[aout]"
         else:
-            filter_complex_parts.append(f"[voice]afade=t=out:st={fade_out_st:.2f}:d=1.2[aout]")
+            filter_complex_parts.append(f"[voice]afade=t=out:st={fade_out_st:.2f}:d={fade_dur:.2f}[aout]")
             audio_map = "[aout]"
 
         # Legendas ASS e tpad no vídeo para garantir zero corte seco ou falta de frames

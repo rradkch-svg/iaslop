@@ -445,7 +445,7 @@ class ProposerAgent:
             "Você é o Diretor Criativo e Pesquisador de Inteligência do canal 'Minuto Inexplicável'. "
             "Sua missão é gerar ideias de altíssimo impacto para Shorts de 60 a 90 segundos sobre mistérios reais, projetos secretos desclassificados, bases subterrâneas, anomalias oceânicas/espaciais e enigmas históricos documentados.\n\n"
             "DIRETRIZES DE RETENÇÃO VIRAL (SHORTS DOCUMENTAIS 9:16):\n"
-            "1. TEMA / TÍTULO: Deve ser instigante, misterioso e documental (ex: 'A Base Nuclear Secreta Enterrada Sob o Gelo ❄️☢️', 'O Poço Mais Fundo da Terra e os Sons de Kola 🕳️🇷🇺', 'O Enigma do Passo Dyatlov nos Montes Urais 🏔️❄️').\n"
+            "1. TEMA / TÍTULO (FÓRMULA CURIOSITY GAP OBRIGATÓRIA): NUNCA use títulos enciclopédicos ou genéricos (como 'O Enigma do Passo Dyatlov' ou 'A Cidade Subterrânea de Derinkuyu'). O título DEVE aplicar estritamente a fórmula de 'Curiosity Gap' e tensão psicológica com perguntas provocantes ou revelações incompletas que forçam o clique e prendem o espectador (exemplos: 'Por Que a Rússia Selou Esse Poço aos 12.262 Metros? 🕳️🇷🇺', 'O Que a Marinha Encontrou a 11.000m e Proibiu de Divulgar? 🌊🤐', 'Por Que Este Satélite Militar Detectou Uma Explosão Secreta no Oceano? 🛰️💥', 'O Que os Cientistas Encontraram Sob o Gelo da Antártida? ❄️🇦🇶'). Conclua com emojis pertinentes.\n"
             "2. HOOK (PRIMEIROS 3 SEGUNDOS): Frase chocante que quebra padrão e gera curiosidade irresistível.\n"
             "3. EXPLICAÇÃO TÉCNICA E FACTUAL: Resumo denso com dados concretos (datas, projetos governamentais, física/geologia real, documentos desclassificados).\n"
             "4. DESCRICAO COMPLETA: Texto pronto para publicação no YouTube.\n"
@@ -493,7 +493,7 @@ class ProposerAgent:
             f"Gere {count} ideias COMPLETAS e 100% INÉDITAS sobre mistérios reais do mundo para o canal 'Minuto Inexplicável' (vídeos de 60 a 90 segundos).\n\n"
             f"[ENTROPIA & SEED DE DIVERSIDADE]: #{seed_val}-{time_salt}\n"
             f"DIRETRIZES OBRIGATÓRIAS:\n"
-            f"1. PACOTE COMPLETO: Cada ideia DEVE conter 'tema' (Título com emojis pertinentes), 'descricao' (Descrição completa para o YouTube), 'tags' (Hashtags virais), 'hook' (Primeiros 3 segundos) e 'explicacao_tecnica' (Contexto documental).\n"
+            f"1. PACOTE COMPLETO E TÍTULO CURIOSITY GAP: O campo 'tema' DEVE seguir estritamente a fórmula de 'Curiosity Gap' (ex: 'Por Que a Rússia Selou Esse Poço aos 12.262 Metros? 🕳️🇷🇺', 'O Que a Marinha Encontrou a 11.000m e Proibiu de Divulgar? 🌊🤐'). NUNCA crie títulos enciclopédicos frios. Cada ideia DEVE conter 'tema', 'descricao' (completa para o YouTube), 'tags' (hashtags virais), 'hook' (primeiros 3 segundos magnéticos) e 'explicacao_tecnica' (resumo documental factual denso).\n"
             f"2. BASE EM FATOS REAIS E ARQUIVOS: Escolha mistérios que possuam acervo de imagens reais, fotos de arquivo, filmagens de satélite, expedições e documentários no YouTube.\n"
             f"3. VARIEDADE MÁXIMA: As {count} ideias devem ser de nichos completamente diferentes entre si.\n"
             f"4. NICHOS SUGERIDOS PARA EXPLORAR NESTA RODADA:\n{angles_str}"
@@ -835,6 +835,7 @@ class DirectorAgent:
             "2. OBRIGATÓRIO: TODA query DEVE conter o [NOME EXATO DO LOCAL/PROJETO/EVENTO] + [TERMO DE ARQUIVO/DOCUMENTÁRIO] (ex: 'Camp Century Greenland nuclear ice documentary', 'Kola Superdeep borehole USSR real footage', 'Mariana trench deep sea exploration 4k', 'Dyatlov Pass incident historical photos').\n"
             "3. Prefira termos que puxem filmagens autênticas: 'real archival footage', 'documentary 4k', 'satellite drone view', 'historical expedition', 'underground bunker 4k', 'ocean depth exploration 4k'.\n"
             "4. 'fala': a frase falada exata da narração nesta cena (narração fluida, sem introduções robóticas).\n"
+            "5. LOOP INFINITO PERFEITO (SEAMLESS LOOP): É TERMINANTEMENTE PROIBIDO incluir chamadas para ação tradicionais (CTAs como 'deixe seu like', 'se inscreva no canal', 'comente aqui') na narração falada, pois provocam abandono imediato. A última frase falada da cena final DEVE se conectar gramatical, sintática e foneticamente sem emendas ao hook da primeira cena (Cena 1), criando um ciclo contínuo e hipnótico.\n"
             "Responda SEMPRE em JSON com a chave raiz 'cenas' (lista de 12 a 18 objetos contendo 'scene_id', 'fala', 'youtube_query', 'duracao_estimada')."
         )
 
@@ -874,7 +875,7 @@ class DirectorAgent:
             f"2. NÚMERO DE CENAS: Exatamente entre 12 e 18 cenas de corte rápido (cada cena com 3 a 7 segundos).\n"
             f"3. CENA 1 (HOOK INICIAL DE 3s): Deve começar no primeiro milissegundo com a revelação instigante (usando o gancho fornecido ou versão ainda mais magnética).\n"
             f"4. CENAS INTERMEDIÁRIAS (DESCLASSIFICAÇÃO DOCUMENTAL): Expor os fatos reais, a ciência, o que foi escavado/descoberto, as tentativas de encobrimento e os dados concretos.\n"
-            f"5. CENA FINAL (CHAMADA DE ENGAJAMENTO): Concluir com uma pergunta instigante sobre o mistério convocando o espectador a comentar sua teoria e se inscrever no canal @MinutoInexplicavel.\n"
+            f"5. CENA FINAL (LOOP INFINITO PERFEITO - SEAMLESS LOOP): É TERMINANTEMENTE PROIBIDO usar chamadas tradicionais para ação (CTAs como 'comente sua teoria', 'deixe o like' ou 'se inscreva no canal @MinutoInexplicavel'), que derrubam a retenção. A frase falada da CENA FINAL DEVE se conectar gramatical, sintática e foneticamente de volta ao início exato da CENA 1 (exemplo: Cena Final: '...e o motivo pelo qual tudo isso permaneceu em segredo...' conectando de volta à Cena 1: '...é exatamente o que os documentos vazados revelam.'). O vídeo deve reiniciar em loop contínuo sem que o espectador perceba o corte.\n"
             f"6. TERMOS DE BUSCA NO YOUTUBE: Queries em INGLÊS focadas exclusivamente no mistério/local específico.\n\n"
             f"Responda SEMPRE em JSON: {{\"cenas\": [{{\"scene_id\": 1, \"fala\": \"...\", \"youtube_query\": \"...\", \"duracao_estimada\": 5.0}}, ...]}}"
         )

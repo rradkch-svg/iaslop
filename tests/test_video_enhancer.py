@@ -61,6 +61,7 @@ class TestVideoResolutionEnhancer(unittest.TestCase):
         self.assertIn("crop=1080:1920", graph)
         self.assertIn("unsharp=", graph)
         self.assertIn("eq=contrast=1.06", graph)
+        self.assertIn("vignette=angle=PI/5", graph)
         self.assertIn("fps=30", graph)
 
 if __name__ == "__main__":

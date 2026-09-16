@@ -32,22 +32,25 @@ def convert_words_to_ass(
     highlight_color: str = "FFE500",
     outline_color: str = "000000",
     chunk_size: int = 3,
-    tail_overhead: float = 0.4
+    tail_overhead: float = 0.15,
+    font_name: str = "Arial Black",
+    font_size: int = 76,
+    margin_v: int = 620
 ) -> bool:
     """
     Gera um arquivo ASS (Advanced SubStation Alpha) com efeito de destaque dinâmico
     palavra por palavra com CAIXA DE DESTAQUE COLORIDA (Pill / Badge Estilo Hormozi)
-    para vídeo vertical 9:16 (1080x1920).
-    Estende a última legenda pelo tempo de tail_overhead para respiro e leitura confortável.
+    para vídeo vertical 9:16 (1080x1920) com tipografia de alto impacto (Arial Black, peso bold).
+    Estende a última legenda pelo tempo de tail_overhead ajustado para transição de loop contínuo.
     """
-    with LogSpan("convert_words_to_ass", extra={"words_count": len(words_timing), "output": output_ass}):
+    with LogSpan("convert_words_to_ass", extra={"words_count": len(words_timing), "output": output_ass, "font": font_name}):
         ass_primary = hex_to_ass(primary_color)
         ass_highlight = hex_to_ass(highlight_color)
         ass_outline = hex_to_ass(outline_color)
 
-        # 1080x1920 layout vertical: Posição no terço inferior (Alignment=2, MarginV=620)
+        # 1080x1920 layout vertical: Posição no terço inferior com margens seguras (Alignment=2, MarginV=620)
         header = f"""[Script Info]
-Title: Dynamic Karaoke Hormozi Pill Box
+Title: Dynamic Karaoke Hormozi Pill Box - High Impact Typography
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -55,7 +58,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: HormoziDefault,Arial,78,&H00{ass_primary},&H000000FF,&H00{ass_outline},&H80000000,-1,0,0,0,100,100,1,0,1,6,2,2,40,40,620,1
+Style: HormoziDefault,{font_name},{font_size},&H00{ass_primary},&H000000FF,&H00{ass_outline},&H80000000,-1,0,0,0,100,100,1,0,1,6,2,2,40,40,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
