@@ -387,6 +387,7 @@ class YouTubeStudioUploader:
             user_data_dir=self.profile_dir,
             executable_path=self.browser_exe,
             headless=self.headless,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
             viewport={"width": 1280, "height": 800},
             ignore_default_args=["--enable-automation"],
             args=[
@@ -488,6 +489,15 @@ class YouTubeStudioUploader:
                         "success": False,
                         "error": "Sessão não autenticada no YouTube Studio. Execute 'scripts\\postar_youtube.bat --login' para autenticar sua conta."
                     }
+
+                try:
+                    skip_btn = page.locator("a[href*='approve_browser_access'], a:has-text('Pular para o YouTube Studio'), a:has-text('PULAR PARA O YOUTUBE STUDIO')").first
+                    if skip_btn.is_visible(timeout=3000):
+                        log("⚠️ Tela intermediária de navegador detectada. Clicando em 'Pular para o YouTube Studio'...")
+                        skip_btn.click()
+                        time.sleep(3)
+                except Exception:
+                    pass
 
                 log("🖱️ Abrindo menu de envio de vídeos...")
                 create_btn = page.locator("#create-icon, button[aria-label*='Criar'], button[aria-label*='Create'], ytcp-button#create-icon").first

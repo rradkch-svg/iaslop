@@ -762,11 +762,12 @@ class AutoPipelineRunner:
                             from .youtube_uploader import upload_and_clean_single_video
                         except ImportError:
                             from youtube_uploader import upload_and_clean_single_video
+                        upload_headless = os.environ.get("YOUTUBE_HEADLESS", "true").lower() in ("true", "1")
                         upload_res = upload_and_clean_single_video(
                             batch_index=batch_idx,
                             video_index=video_idx,
                             checkpoint_dir=self.checkpoint_mgr.root_dir,
-                            headless=True
+                            headless=upload_headless
                         )
                         if upload_res.get("success"):
                             print(f"  🎉 Vídeo agendado com sucesso ({upload_res.get('url')}) e armazenamento limpo ({upload_res.get('freed_mb', 0)} MB liberados)!")
