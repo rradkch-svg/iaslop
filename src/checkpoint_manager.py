@@ -391,10 +391,12 @@ class CheckpointManager:
                     except:
                         pass
                 
-                # Validação física de integridade
+                # Validação física de integridade ou pós-upload/limpeza
                 final_video_file1 = os.path.join(v_dir, "final_video.mp4")
                 final_video_file2 = os.path.join(v_dir, "final_output.mp4")
-                if (os.path.exists(final_video_file1) and os.path.getsize(final_video_file1) > 100_000) or (os.path.exists(final_video_file2) and os.path.getsize(final_video_file2) > 100_000):
+                has_final_mp4 = (os.path.exists(final_video_file1) and os.path.getsize(final_video_file1) > 100_000) or (os.path.exists(final_video_file2) and os.path.getsize(final_video_file2) > 100_000)
+                is_cleaned_or_posted = v_data.get("cleaned") or v_data.get("youtube_scheduled_time") or v_data.get("youtube_url")
+                if has_final_mp4 or is_cleaned_or_posted or v_status == "COMPLETED":
                     v_status = "COMPLETED"
 
                 videos_status[v_name] = v_status
@@ -568,6 +570,7 @@ class CheckpointManager:
         # 3. Atualiza checkpoint do vídeo indicando que foi limpo
         ckpt = self.load_video_checkpoint(batch_index, video_index)
         ckpt["cleaned"] = True
+        ckpt["status"] = "COMPLETED"
         ckpt["cleaned_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         if youtube_url:
             ckpt["youtube_url"] = youtube_url
@@ -690,7 +693,8 @@ class CheckpointManager:
                 return "COMPLETED", ckpt
 
         # Se o vídeo já foi concluído e seu conteúdo pesado foi limpo para liberar espaço
-        if ckpt.get("status") == "COMPLETED" and (ckpt.get("completed_at") or ckpt.get("cleaned") or ckpt.get("final_video_size_bytes")):
+        if (ckpt.get("status") == "COMPLETED" or ckpt.get("cleaned") or ckpt.get("youtube_scheduled_time") or ckpt.get("youtube_url")) and (ckpt.get("completed_at") or ckpt.get("cleaned") or ckpt.get("final_video_size_bytes") or ckpt.get("youtube_scheduled_time")):
+            ckpt["status"] = "COMPLETED"
             return "COMPLETED", ckpt
 
         # 2. Verifica se o tema foi definido

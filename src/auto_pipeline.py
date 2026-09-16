@@ -378,6 +378,9 @@ class AutoPipelineRunner:
                 if os.path.exists(final_v) and os.path.getsize(final_v) > 100_000:
                     print(f"  ✨ Vídeo já concluído e renderizado anteriormente: {final_v}")
                     return True
+                elif ckpt.get("cleaned") or ckpt.get("youtube_url") or ckpt.get("youtube_scheduled_time"):
+                    print(f"  ✨ Vídeo já concluído, agendado no YouTube e mídia limpa: {v_name}")
+                    return True
                 else:
                     stage = "RENDER_FINAL"
 
