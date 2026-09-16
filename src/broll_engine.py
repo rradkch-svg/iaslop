@@ -214,28 +214,39 @@ def build_topic_queries(global_topic: str, base_query: str) -> List[str]:
     topic_kw = extract_topic_keywords(global_topic)
     queries = []
     
-    # Verifica se base_query já contém palavras-chave do tema
-    t_tokens = [w.lower() for w in topic_kw.split() if len(w) > 1]
+    # Remove tema prefixado redundante se presente na base_query
     base_clean = base_query.strip() if base_query else ""
+    for prefix in [global_topic, topic_kw]:
+        if prefix and len(prefix) > 5 and base_clean.lower().startswith(prefix.lower()):
+            clean_sub = base_clean[len(prefix):].strip()
+            if len(clean_sub.split()) >= 2:
+                base_clean = clean_sub
+                break
+
+    # Limpa caracteres especiais e emojis
+    base_clean = re.sub(r"[^\w\s\-\.]", " ", base_clean)
+    base_clean = " ".join(base_clean.split())
     base_lower = base_clean.lower()
+    t_tokens = [w.lower() for w in topic_kw.split() if len(w) > 1]
     has_anchor = any(t in base_lower for t in t_tokens) if t_tokens else False
     
     if base_clean:
         queries.append(base_clean)
+        # Se for longa, adiciona versão mais concisa com os termos essenciais
+        b_words = base_clean.split()
+        if len(b_words) > 5:
+            queries.append(" ".join(b_words[-4:]))
         if not base_lower.endswith("4k") and not base_lower.endswith("hd"):
             queries.append(f"{base_clean} 4k")
-        if not has_anchor and topic_kw:
+        if not has_anchor and topic_kw and len(b_words) <= 4:
             anchored = f"{topic_kw} {base_clean}".strip()
             queries.append(anchored)
-            queries.append(f"{anchored} 4k")
             
     if topic_kw:
         queries.extend([
             f"{topic_kw} documentary footage 4k",
             f"{topic_kw} real archival footage",
-            f"{topic_kw} satellite drone view 4k",
-            f"{topic_kw} expedition history documentary",
-            f"{topic_kw} mystery investigation 4k"
+            f"{topic_kw} satellite view 4k"
         ])
         
     unique_queries = []

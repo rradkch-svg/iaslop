@@ -613,21 +613,28 @@ class AutoPipelineRunner:
 
                 if not has_approved:
                     print(f"    🔄 Buscando clipe de arquivo documental histórico para compor o vídeo...")
-                    fallback_query = f"{ckpt.get('topic', {}).get('tema', '')} historical archival documentary 4k"
-                    fb_res = self.broll_engine.fetch_scene_broll(
-                        query=fallback_query,
-                        output_dir=broll_dir,
-                        scene_idx=1,
-                        target_duration=10.0,
-                        global_topic=ckpt.get("topic", {}).get("tema", ""),
-                        reviewer_agent=self.reviewer_agent,
-                        scene_fala=""
-                    )
-                    if fb_res.get("success"):
-                        fb_res["review"] = fb_res.get("inspection", {"aprovado": True, "nota_relevancia": 8.0})
-                        scenes_media["1"] = fb_res
-                        ckpt["scenes_media"] = scenes_media
-                        self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                    clean_tema = re.sub(r"[^\w\s]", " ", ckpt.get("topic", {}).get("tema", "")).strip()
+                    fallback_queries = [
+                        f"{clean_tema} documentary 4k",
+                        f"{clean_tema} archival footage",
+                        "cold war satellite ocean military archival footage 4k"
+                    ]
+                    for fb_q in fallback_queries:
+                        fb_res = self.broll_engine.fetch_scene_broll(
+                            query=fb_q,
+                            output_dir=broll_dir,
+                            scene_idx=1,
+                            target_duration=10.0,
+                            global_topic=clean_tema,
+                            reviewer_agent=self.reviewer_agent,
+                            scene_fala=""
+                        )
+                        if fb_res.get("success"):
+                            fb_res["review"] = fb_res.get("inspection", {"aprovado": True, "nota_relevancia": 8.0})
+                            scenes_media["1"] = fb_res
+                            ckpt["scenes_media"] = scenes_media
+                            self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
+                            break
 
                 ckpt["status"] = "BROLL_READY"
                 self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
@@ -694,8 +701,18 @@ class AutoPipelineRunner:
                             "is_fallback": True
                         })
                     else:
-                        app_logger.warning(f"[AutoPipeline] Nenhum clipe de vídeo real auditado disponível para {b_name}/{v_name}. Marcando para re-download de B-Roll.")
-                        ckpt["status"] = "PROCESS_SCENES"
+                        retry_cnt = ckpt.get("broll_fail_count", 0) + 1
+                        ckpt["broll_fail_count"] = retry_cnt
+                        app_logger.warning(f"[AutoPipeline] Nenhum clipe de vídeo real auditado disponível para {b_name}/{v_name} (Tentativa {retry_cnt}/3).")
+                        if retry_cnt >= 3:
+                            app_logger.warning(f"[AutoPipeline] Limite de tentativas de B-Roll atingido para {b_name}/{v_name}. Resetando tema e storyboard para propor novo tema factível.")
+                            ckpt["topic"] = None
+                            ckpt["storyboard"] = None
+                            ckpt["scenes_media"] = {}
+                            ckpt["status"] = "PENDING"
+                            ckpt["broll_fail_count"] = 0
+                        else:
+                            ckpt["status"] = "PROCESS_SCENES"
                         self.checkpoint_mgr.save_video_checkpoint(batch_idx, video_idx, ckpt)
                         return False
 
